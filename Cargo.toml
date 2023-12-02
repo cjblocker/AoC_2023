@@ -5,3 +5,4 @@ edition = "2021"
 authors = ["Cameron Blocker <cameronjblocker@gmail.com>"]
 
 [dependencies]
+regex = "1.10.2"
