@@ -19,10 +19,7 @@ impl Game {
         let captures = re.captures(line).unwrap();
         let id = &captures[1];
         let id: u32 = id.parse().unwrap();
-        let draws: Vec<CubeDraw> = captures[2]
-            .split(";")
-            .map(|draw| CubeDraw::parse(draw))
-            .collect();
+        let draws: Vec<CubeDraw> = captures[2].split(';').map(CubeDraw::parse).collect();
         Self { id, draws }
     }
 
@@ -52,7 +49,7 @@ impl CubeDraw {
             blue: 0,
         };
         for cdraw in line.split(", ") {
-            let cdraw: Vec<&str> = cdraw.trim().split(" ").collect();
+            let cdraw: Vec<&str> = cdraw.trim().split(' ').collect();
             let num: u32 = cdraw.first().unwrap().parse().unwrap();
             let color: &str = cdraw.last().unwrap();
             match color {
