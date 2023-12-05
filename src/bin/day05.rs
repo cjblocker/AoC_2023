@@ -38,7 +38,7 @@ impl AlmanacMap {
                 return (source - src_range.start) + dest_range.start;
             }
         }
-        return source;
+        source
     }
 
     fn map_range(&self, source: Range<u64>) -> Vec<Range<u64>> {
@@ -49,8 +49,7 @@ impl AlmanacMap {
             .collect();
         let mut src_ranges = vec![source.clone()];
         let mut dest_ranges = vec![];
-        'outer: while !src_ranges.is_empty() {
-            let curr_range = src_ranges.pop().unwrap();
+        'outer: while let Some(curr_range) = src_ranges.pop() {
             for map_range in covering_ranges.iter() {
                 if ranges_overlap(&map_range.0, &curr_range) {
                     if curr_range.start >= map_range.0.start && curr_range.end <= map_range.0.end {
