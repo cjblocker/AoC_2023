@@ -22,7 +22,7 @@ fn day01_p1_iter<'a>(items: impl Iterator<Item = &'a str> + 'a) -> impl Iterator
 ///    - "hgre7njke" -> 77
 /// Note that 7 in the last example was both the first and last digit.
 pub fn day01_p1() -> u32 {
-    let filename = "day_01.txt";
+    let filename = "data/day_01.txt";
     day01_p1_iter(read_to_string(filename).unwrap().lines()).sum()
 }
 
@@ -56,8 +56,24 @@ fn day01_p2_iter<'a>(items: impl Iterator<Item = &'a str> + 'a) -> impl Iterator
 /// "xtwone3four" -> 24 (notice the overlap in two and one)
 /// "zoneight234" -> 14
 pub fn day01_p2() -> u32 {
-    let filename = "day_01.txt";
+    let filename = "data/day_01.txt";
     day01_p2_iter(read_to_string(filename).unwrap().lines()).sum()
+}
+
+use std::env;
+fn main() {
+    let part1 = if let Some(arg1) = env::args().nth(1) {
+        arg1.parse().unwrap_or(1) == 1
+    } else {
+        true
+    };
+    if part1 {
+        let sol = day01_p1();
+        println!("Day 1 part 1 solution is: {sol}");
+    } else {
+        let sol = day01_p2();
+        println!("Day 1 part 2 solution is: {sol}");
+    }
 }
 
 #[cfg(test)]

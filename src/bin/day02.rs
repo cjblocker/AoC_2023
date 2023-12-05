@@ -68,7 +68,7 @@ impl CubeDraw {
 }
 
 pub fn day02_p1() -> u32 {
-    let filename = "day_02.txt";
+    let filename = "data/day_02.txt";
     read_to_string(filename)
         .unwrap()
         .lines()
@@ -79,13 +79,29 @@ pub fn day02_p1() -> u32 {
 }
 
 pub fn day02_p2() -> u32 {
-    let filename = "day_02.txt";
+    let filename = "data/day_02.txt";
     read_to_string(filename)
         .unwrap()
         .lines()
         .map(Game::parse)
         .map(|game| game.min_power())
         .sum()
+}
+
+use std::env;
+fn main() {
+    let part1 = if let Some(arg1) = env::args().nth(1) {
+        arg1.parse().unwrap_or(1) == 1
+    } else {
+        true
+    };
+    if part1 {
+        let sol = day02_p1();
+        println!("Day 2 part 1 solution is: {sol}");
+    } else {
+        let sol = day02_p2();
+        println!("Day 2 part 2 solution is: {sol}");
+    }
 }
 
 #[cfg(test)]

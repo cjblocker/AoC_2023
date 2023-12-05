@@ -1,3 +1,4 @@
+#![allow(clippy::needless_range_loop)] // I find the take(.).skip(.) syntax unclear
 use std::collections::HashMap;
 use std::fs::read_to_string;
 
@@ -110,15 +111,31 @@ fn day03_p2(schematic: &str) -> u32 {
 }
 
 pub fn run_day03_p1() -> u32 {
-    let filename = "day_03.txt";
+    let filename = "data/day_03.txt";
     let schematic = read_to_string(filename).unwrap();
     day03_p1(&schematic)
 }
 
 pub fn run_day03_p2() -> u32 {
-    let filename = "day_03.txt";
+    let filename = "data/day_03.txt";
     let schematic = read_to_string(filename).unwrap();
     day03_p2(&schematic)
+}
+
+use std::env;
+fn main() {
+    let part1 = if let Some(arg1) = env::args().nth(1) {
+        arg1.parse().unwrap_or(1) == 1
+    } else {
+        true
+    };
+    if part1 {
+        let sol = run_day03_p1();
+        println!("Day 3 part 1 solution is: {sol}");
+    } else {
+        let sol = run_day03_p2();
+        println!("Day 3 part 2 solution is: {sol}");
+    }
 }
 
 #[cfg(test)]

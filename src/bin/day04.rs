@@ -32,7 +32,7 @@ fn day04_p1(cards: &str) -> u32 {
 }
 
 pub fn run_day04_p1() -> u32 {
-    let filename = "day_04.txt";
+    let filename = "data/day_04.txt";
     let cards = read_to_string(filename).unwrap();
     day04_p1(&cards)
 }
@@ -73,9 +73,25 @@ fn day04_p2(cards: &str) -> u32 {
 }
 
 pub fn run_day04_p2() -> u32 {
-    let filename = "day_04.txt";
+    let filename = "data/day_04.txt";
     let cards = read_to_string(filename).unwrap();
     day04_p2(&cards)
+}
+
+use std::env;
+fn main() {
+    let part1 = if let Some(arg1) = env::args().nth(1) {
+        arg1.parse().unwrap_or(1) == 1
+    } else {
+        true
+    };
+    if part1 {
+        let sol = run_day04_p1();
+        println!("Day 4 part 1 solution is: {sol}");
+    } else {
+        let sol = run_day04_p2();
+        println!("Day 4 part 2 solution is: {sol}");
+    }
 }
 
 #[cfg(test)]
