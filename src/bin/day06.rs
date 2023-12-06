@@ -9,7 +9,7 @@ fn day06_p1(time: Vec<u64>, dist: Vec<u64>) -> u64 {
     // so maybe: floor((T+sqrt(T^2 - 4D))/2) - ceil((T-sqrt(T^2 - 4D))/2)
     // but that is way more complicated than just iterating.
     time.into_iter()
-        .zip(dist.into_iter())
+        .zip(dist)
         .map(|(t, d)| (0..t).map(|x| (t - x) * x).filter(|y| y > &d).count() as u64)
         .product()
 }
