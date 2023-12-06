@@ -5,7 +5,13 @@ use std::ops::Range;
 
 #[derive(Debug)]
 struct AlmanacMap {
-    pub data: Vec<(Range<u64>, Range<u64>)>,
+    pub data: Vec<MapLine>,
+}
+
+#[derive(Debug)]
+struct MapLine {
+    pub src: Range<u64>,
+    pub dst: Range<u64>,
 }
 
 impl AlmanacMap {
@@ -23,17 +29,21 @@ impl AlmanacMap {
                     let [dest_start, src_start, length] = numbers[0..3] else {
                         panic!("Line parsing failed")
                     };
-                    (
-                        src_start..(src_start + length),
-                        dest_start..(dest_start + length),
-                    )
+                    MapLine {
+                        src: src_start..(src_start + length),
+                        dst: dest_start..(dest_start + length),
+                    }
                 })
                 .collect(),
         }
     }
 
     fn map(&self, source: u64) -> u64 {
-        for (src_range, dest_range) in &self.data {
+        for MapLine {
+            src: src_range,
+            dst: dest_range,
+        } in &self.data
+        {
             if src_range.contains(&source) {
                 return (source - src_range.start) + dest_range.start;
             }
@@ -42,43 +52,56 @@ impl AlmanacMap {
     }
 
     fn map_range(&self, source: Range<u64>) -> Vec<Range<u64>> {
+        // we filter out any totally non-overlapping map lines as a micro-optimization
         let covering_ranges: Vec<_> = self
             .data
             .iter()
-            .filter(|&r| ranges_overlap(&r.0, &source))
+            .filter(|&r| ranges_overlap(&r.src, &source))
             .collect();
         let mut src_ranges = vec![source.clone()];
         let mut dest_ranges = vec![];
+        // The idea of this loop is that we are going to take each unmapped range in `src_ranges`,
+        // find an overlapping src range in the almanac map, add the corresponding destination range
+        // to the output results, and take any leftover parts of the unmapped range and put it back
+        // in `src_ranges` to be processed again. If a range has no overlapping maps, its also added to the output.
         'outer: while let Some(curr_range) = src_ranges.pop() {
             for map_range in covering_ranges.iter() {
-                if ranges_overlap(&map_range.0, &curr_range) {
-                    if curr_range.start >= map_range.0.start && curr_range.end <= map_range.0.end {
+                if ranges_overlap(&map_range.src, &curr_range) {
+                    if curr_range.start >= map_range.src.start
+                        && curr_range.end <= map_range.src.end
+                    {
                         // curr_range is completely inside
-                        let dest_start = (curr_range.start - map_range.0.start) + map_range.1.start;
-                        let dest_end = (curr_range.end - map_range.0.start) + map_range.1.start;
+                        let dest_start =
+                            (curr_range.start - map_range.src.start) + map_range.dst.start;
+                        let dest_end = (curr_range.end - map_range.src.start) + map_range.dst.start;
                         dest_ranges.push(dest_start..dest_end);
-                    } else if map_range.0.start >= curr_range.start
-                        && map_range.0.end <= curr_range.end
+                    } else if map_range.src.start >= curr_range.start
+                        && map_range.src.end <= curr_range.end
                     {
-                        // map_range.0 is in the middle of curr_range, so we divide into three pieces
-                        dest_ranges.push(map_range.1.clone());
-                        src_ranges.push(curr_range.start..map_range.0.start);
-                        src_ranges.push(map_range.0.end..curr_range.end);
-                    } else if map_range.0.start > curr_range.start
-                        && map_range.0.end > curr_range.end
+                        // map_range.src is in the middle of curr_range, so we divide into three pieces
+                        dest_ranges.push(map_range.dst.clone());
+                        src_ranges.push(curr_range.start..map_range.src.start);
+                        src_ranges.push(map_range.src.end..curr_range.end);
+                    } else if map_range.src.start > curr_range.start
+                        && map_range.src.end > curr_range.end
                     {
-                        // map_range.0 overlap the back half
-                        src_ranges.push(curr_range.start..map_range.0.start);
-                        let dest_end = (curr_range.end - map_range.0.start) + map_range.1.start;
-                        dest_ranges.push(map_range.1.start..dest_end);
-                    } else if curr_range.start > map_range.0.start
-                        && curr_range.end > map_range.0.end
+                        // map_range.src overlap the back half
+                        src_ranges.push(curr_range.start..map_range.src.start);
+                        let dest_end = (curr_range.end - map_range.src.start) + map_range.dst.start;
+                        dest_ranges.push(map_range.dst.start..dest_end);
+                    } else if curr_range.start > map_range.src.start
+                        && curr_range.end > map_range.src.end
                     {
-                        // map_range.0 overlap the front half
-                        src_ranges.push(map_range.0.end..curr_range.end);
-                        let dest_start = (curr_range.start - map_range.0.start) + map_range.1.start;
-                        dest_ranges.push(dest_start..map_range.1.end)
+                        // map_range.src overlap the front half
+                        src_ranges.push(map_range.src.end..curr_range.end);
+                        let dest_start =
+                            (curr_range.start - map_range.src.start) + map_range.dst.start;
+                        dest_ranges.push(dest_start..map_range.dst.end)
+                    } else {
+                        panic!("Somehow a two ranges that overlap don't fall in any of the above cases?")
                     }
+                    // We have "used up" `curr_range` now, (by adding its pieces to `src_ranges` and `dest_ranges`)
+                    // so it doesn't make sense to continue looking for overlapping ranges of it.
                     continue 'outer;
                 }
             }
