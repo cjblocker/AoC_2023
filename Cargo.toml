@@ -6,4 +6,5 @@ authors = ["Cameron Blocker <cameronjblocker@gmail.com>"]
 
 [dependencies]
 itertools = "0.12.0"
+num = "0.4.1"
 regex = "1.10.2"

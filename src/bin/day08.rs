@@ -1,3 +1,4 @@
+use num::integer::lcm;
 use std::collections::HashMap;
 use std::convert::From;
 use std::env;
@@ -55,16 +56,55 @@ fn day08_p1(chart: &str) -> u64 {
     steps as u64
 }
 
-fn map_start_to_end(mut key: String, connections: &HashMap<String, Turn>, turns: &str) -> String {
-    for direction in turns.chars() {
-        key = match direction {
-            'L' => connections.get(&key).unwrap().left.to_owned(),
-            'R' => connections.get(&key).unwrap().right.to_owned(),
-            _ => panic!("Unknown direction"),
-        };
-    }
-    key
-}
+// fn map_start_to_end(mut key: String, connections: &HashMap<String, Turn>, turns: &str) -> String {
+//     for direction in turns.chars() {
+//         key = match direction {
+//             'L' => connections.get(&key).unwrap().left.to_owned(),
+//             'R' => connections.get(&key).unwrap().right.to_owned(),
+//             _ => panic!("Unknown direction"),
+//         };
+//     }
+//     key
+// }
+
+// Caching didn't end up making sense really since we stop once we find a unique point, but it works
+// fn day08_p2_cache(chart: &str) -> u64 {
+//     let Chart { turns, connections } = Chart::from(chart);
+//     let mut keys: Vec<String> = connections
+//         .keys()
+//         .filter(|key| key.as_bytes()[2] == b'A')
+//         .map(|key| key.to_owned())
+//         .collect();
+//     let mut cache = HashMap::new();
+//     let mut cycle_lens = vec![];
+//     let mut steps = 0u64;
+//     loop {
+//         steps += 1;
+//         keys = keys
+//             .into_iter()
+//             .map(|key| {
+//                 let key2 = key.clone();
+//                 cache
+//                     .entry(key)
+//                     .or_insert_with(|| map_start_to_end(key2, &connections, &turns))
+//                     .to_owned()
+//             })
+//             .filter_map(|key| {
+//                 if key.as_bytes()[2] == b'Z' {
+//                     cycle_lens.push(steps * turns.len() as u64);
+//                     None
+//                 } else {
+//                     Some(key)
+//                 }
+//             })
+//             .collect();
+//         if keys.len() == 0 {
+//             break;
+//         }
+//     }
+//     let num_keys = cycle_lens.len();
+//     cycle_lens.into_iter().fold(1, lcm)
+// }
 
 fn day08_p2(chart: &str) -> u64 {
     let Chart { turns, connections } = Chart::from(chart);
@@ -73,24 +113,29 @@ fn day08_p2(chart: &str) -> u64 {
         .filter(|key| key.as_bytes()[2] == b'A')
         .map(|key| key.to_owned())
         .collect();
-    let mut cache = HashMap::new();
-    let mut steps = 0u64;
-    loop {
+    let mut cycle_lens = vec![];
+    for (step, direction) in turns.chars().cycle().enumerate() {
         keys = keys
             .into_iter()
-            .map(|key| {
-                let key2 = key.clone();
-                cache
-                    .entry(key)
-                    .or_insert_with(|| map_start_to_end(key2, &connections, &turns))
-                    .to_owned()
+            .map(|key| match direction {
+                'L' => connections.get(&key).unwrap().left.to_owned(),
+                'R' => connections.get(&key).unwrap().right.to_owned(),
+                _ => panic!("Unknown direction"),
+            })
+            .filter_map(|key| {
+                if key.as_bytes()[2] == b'Z' {
+                    cycle_lens.push(step as u64 + 1);
+                    None
+                } else {
+                    Some(key)
+                }
             })
             .collect();
-        steps += 1;
-        if keys.iter().all(|key| key.as_bytes()[2] == b'Z') {
-            break steps * turns.len() as u64;
+        if keys.len() == 0 {
+            break;
         }
     }
+    cycle_lens.into_iter().fold(1, lcm)
 }
 
 pub fn run_day08_p1() -> u64 {
@@ -158,8 +203,8 @@ mod test {
         assert_eq!(run_day08_p1(), 12737)
     }
 
-    // #[test]
-    // fn test_day08_p2() {
-    //     assert_eq!(run_day08_p2(), 252898370)
-    // }
+    #[test]
+    fn test_day08_p2() {
+        assert_eq!(run_day08_p2(), 9_064_949_303_801)
+    }
 }
