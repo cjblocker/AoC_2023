@@ -55,7 +55,7 @@ fn day08_p1(chart: &str) -> u64 {
     steps as u64
 }
 
-fn map_start_to_end(key: mut String, turns: &str) -> String {
+fn map_start_to_end(mut key: String, connections: &HashMap<String, Turn>, turns: &str) -> String {
     for direction in turns.chars() {
         key = match direction {
             'L' => connections.get(&key).unwrap().left.to_owned(),
@@ -73,28 +73,24 @@ fn day08_p2(chart: &str) -> u64 {
         .filter(|key| key.as_bytes()[2] == b'A')
         .map(|key| key.to_owned())
         .collect();
-    assert!(keys.len() > 0);
-    dbg!(&keys);
-    let mut steps = 0;
-    for (step, direction) in turns.chars().cycle().enumerate() {
+    let mut cache = HashMap::new();
+    let mut steps = 0u64;
+    loop {
         keys = keys
             .into_iter()
-            .map(|key| match direction {
-                'L' => connections.get(&key).unwrap().left.to_owned(),
-                'R' => connections.get(&key).unwrap().right.to_owned(),
-                _ => panic!("Unknown direction"),
+            .map(|key| {
+                let key2 = key.clone();
+                cache
+                    .entry(key)
+                    .or_insert_with(|| map_start_to_end(key2, &connections, &turns))
+                    .to_owned()
             })
             .collect();
+        steps += 1;
         if keys.iter().all(|key| key.as_bytes()[2] == b'Z') {
-            steps = step + 1;
-            break;
-        }
-        let count = keys.iter().filter(|key| key.as_bytes()[2] == b'Z').count();
-        if count > 1 {
-            println!("{} {:?}", count, &keys);
+            break steps * turns.len() as u64;
         }
     }
-    steps as u64
 }
 
 pub fn run_day08_p1() -> u64 {
@@ -117,10 +113,10 @@ fn main() {
     };
     if part1 {
         let sol = run_day08_p1();
-        println!("Day 7 part 1 solution is: {sol}");
+        println!("Day 8 part 1 solution is: {sol}");
     } else {
         let sol = run_day08_p2();
-        println!("Day 7 part 2 solution is: {sol}");
+        println!("Day 8 part 2 solution is: {sol}");
     }
 }
 
@@ -154,7 +150,7 @@ mod test {
 
     #[test]
     fn test_day08_p2_example() {
-        assert_eq!(day08_p2(EXAMPLE_2), 5)
+        assert_eq!(day08_p2(EXAMPLE_2), 6)
     }
 
     #[test]
