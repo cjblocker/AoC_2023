@@ -1,3 +1,4 @@
+//! Day 8: Haunted Wasteland
 use num::integer::lcm;
 use std::collections::HashMap;
 use std::convert::From;
@@ -27,8 +28,8 @@ impl From<&str> for Chart {
                 (
                     key,
                     Turn {
-                        left: lval.replace("(", "").trim().to_owned(),
-                        right: rval.replace(")", "").trim().to_owned(),
+                        left: lval.replace('(', "").trim().to_owned(),
+                        right: rval.replace(')', "").trim().to_owned(),
                     },
                 )
             })
@@ -37,9 +38,11 @@ impl From<&str> for Chart {
     }
 }
 
+/// Starting from Node AAA traverse the graph to Node ZZZ following
+/// the given turn directions and report number of steps
 fn day08_p1(chart: &str) -> u64 {
-    let chart = Chart::from(chart);
-    let Chart { turns, connections } = chart;
+    // I think I need to destructure this struct so I can borrow independently?
+    let Chart { turns, connections } = Chart::from(chart);
     let mut key = "AAA".to_string();
     let mut steps = 0;
     for (step, direction) in turns.chars().cycle().enumerate() {
@@ -56,57 +59,14 @@ fn day08_p1(chart: &str) -> u64 {
     steps as u64
 }
 
-// fn map_start_to_end(mut key: String, connections: &HashMap<String, Turn>, turns: &str) -> String {
-//     for direction in turns.chars() {
-//         key = match direction {
-//             'L' => connections.get(&key).unwrap().left.to_owned(),
-//             'R' => connections.get(&key).unwrap().right.to_owned(),
-//             _ => panic!("Unknown direction"),
-//         };
-//     }
-//     key
-// }
-
-// Caching didn't end up making sense really since we stop once we find a unique point, but it works
-// fn day08_p2_cache(chart: &str) -> u64 {
-//     let Chart { turns, connections } = Chart::from(chart);
-//     let mut keys: Vec<String> = connections
-//         .keys()
-//         .filter(|key| key.as_bytes()[2] == b'A')
-//         .map(|key| key.to_owned())
-//         .collect();
-//     let mut cache = HashMap::new();
-//     let mut cycle_lens = vec![];
-//     let mut steps = 0u64;
-//     loop {
-//         steps += 1;
-//         keys = keys
-//             .into_iter()
-//             .map(|key| {
-//                 let key2 = key.clone();
-//                 cache
-//                     .entry(key)
-//                     .or_insert_with(|| map_start_to_end(key2, &connections, &turns))
-//                     .to_owned()
-//             })
-//             .filter_map(|key| {
-//                 if key.as_bytes()[2] == b'Z' {
-//                     cycle_lens.push(steps * turns.len() as u64);
-//                     None
-//                 } else {
-//                     Some(key)
-//                 }
-//             })
-//             .collect();
-//         if keys.len() == 0 {
-//             break;
-//         }
-//     }
-//     let num_keys = cycle_lens.len();
-//     cycle_lens.into_iter().fold(1, lcm)
-// }
-
+/// Starting from all nodes that end in 'A', traverse the graph following the given
+/// turn directions until all of the nodes end in 'Z' and report the number of steps
 fn day08_p2(chart: &str) -> u64 {
+    // For this problem, we make very specific assumptions
+    // based off the structure of the *given* input (outside of the problem description).
+    // specifically each starting point --A puts you in a loop that contains a single --Z
+    // exit node. The cycle period happens to be the distance from --A to --Z. We find
+    // each cycle length and then compute their least common multiple (LCM).
     let Chart { turns, connections } = Chart::from(chart);
     let mut keys: Vec<String> = connections
         .keys()
@@ -131,7 +91,7 @@ fn day08_p2(chart: &str) -> u64 {
                 }
             })
             .collect();
-        if keys.len() == 0 {
+        if keys.is_empty() {
             break;
         }
     }
