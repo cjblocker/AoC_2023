@@ -1,5 +1,4 @@
 //! Day 9: Mirage Maintenance
-use itertools::Itertools;
 use std::env;
 use std::fs::read_to_string;
 
@@ -10,9 +9,8 @@ fn extrapolate_next(numbers: &[i64]) -> i64 {
     numbers[numbers.len() - 1]
         + extrapolate_next(
             &numbers
-                .iter()
-                .tuple_windows()
-                .map(|(a, b)| b - a)
+                .windows(2)
+                .map(|d| d[1] - d[0])
                 .collect::<Vec<i64>>(),
         )
 }
@@ -41,9 +39,8 @@ fn extrapolate_prev(numbers: &[i64]) -> i64 {
     numbers[0]
         - extrapolate_prev(
             &numbers
-                .iter()
-                .tuple_windows()
-                .map(|(a, b)| b - a)
+                .windows(2)
+                .map(|d| d[1] - d[0])
                 .collect::<Vec<i64>>(),
         )
 }
