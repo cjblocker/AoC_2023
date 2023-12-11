@@ -8,7 +8,7 @@ enum Direction {
     West,
 }
 
-/// Find all numbers in the chart that are adjacent to a symbol including diagonally
+/// Find distance to farthest point in loop (ie length of loop divided by 2)
 fn day10_p1(chart: &str) -> u32 {
     let chart: Vec<Vec<char>> = chart
         .lines()
@@ -30,6 +30,10 @@ fn day10_p1(chart: &str) -> u32 {
     }
     let start = start.unwrap();
 
+    // HACK: I assume 'J' is on the right of 'S'
+    // this is true in my input and I edited the examples
+    // that didn't have this property to also have it.
+    // A bit easier than determining what 'S' should be.
     let mut pos = (start.0, start.1 + 1);
     let mut dir = Direction::East;
     let mut pipe = 'J';
@@ -63,8 +67,8 @@ fn day10_p1(chart: &str) -> u32 {
     count / 2
 }
 
-/// A gear is a '*' with exactly two numbers by it
-/// find all gears, multiply their two numbers, and add them up
+/// Compute number of points enclosed by the inside of the loop
+/// a sort of discrete greens theorem.
 fn day10_p2(chart: &str) -> u32 {
     let chart: Vec<Vec<char>> = chart
         .lines()
@@ -86,11 +90,15 @@ fn day10_p2(chart: &str) -> u32 {
     }
     let start = start.unwrap();
 
+    // HACK: I assume 'J' is on the right of 'S'
+    // this is true in my input and I edited the examples
+    // that didn't have this property to also have it.
+    // A bit easier than determining what 'S' should be.
     let mut pos = (start.0, start.1 + 1);
     let mut dir = Direction::East;
     let mut pipe = 'J';
     let mut rot: i32 = 1;
-    let mut path = vec![(pos.clone(), pipe, dir)];
+    let mut path = vec![(pos, pipe, dir)];
     while pipe != 'S' {
         dir = match (pipe, dir) {
             ('-', Direction::East) => Direction::East,
@@ -138,8 +146,12 @@ fn day10_p2(chart: &str) -> u32 {
             Direction::West => pos.1 -= 1,
         };
         pipe = chart[pos.0][pos.1];
-        path.push((pos.clone(), pipe, dir));
+        path.push((pos, pipe, dir));
     }
+    // we now know if we are turning clockwise or counterclockwise and can
+    // test points we think might be on the inside.
+    // A lot of points here get tested multiple times and I used that fact
+    // to just ignore the 'S' case.
     let path = path; // no longer mutable
     let path_points: Vec<(usize, usize)> = path.iter().map(|x| x.0).collect();
     let ccw = rot.signum() > 0; // +1 for CCW, -1 for clockwise
