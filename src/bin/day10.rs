@@ -141,6 +141,7 @@ fn day10_p2(chart: &str) -> u32 {
         path.push((pos.clone(), pipe, dir));
     }
     let path = path; // no longer mutable
+    let path_points: Vec<(usize, usize)> = path.iter().map(|x| x.0).collect();
     let ccw = rot.signum() > 0; // +1 for CCW, -1 for clockwise
     let mut inside = vec![];
     for (pos, pipe, dir) in path.iter() {
@@ -159,29 +160,61 @@ fn day10_p2(chart: &str) -> u32 {
             (true, '|', Direction::South) | (false, '|', Direction::North) => {
                 potential_inside.push((pos.0, pos.1 + 1));
             }
-            (true, 'L', Direction::East) | (false, 'L', Direction::North) => {
+            (true, 'L', Direction::South) | (false, 'L', Direction::West) => {
                 potential_inside.push((pos.0 - 1, pos.1 + 1));
             }
-            (true, 'L', Direction::North) | (false, 'L', Direction::East) => {
+            (true, 'L', Direction::West) | (false, 'L', Direction::South) => {
                 potential_inside.push((pos.0, pos.1 - 1));
                 potential_inside.push((pos.0 + 1, pos.1 - 1));
                 potential_inside.push((pos.0 + 1, pos.1));
             }
-            (true, 'J', Direction::North) | (false, 'J', Direction::West) => {
+            (true, 'J', Direction::East) | (false, 'J', Direction::South) => {
                 potential_inside.push((pos.0 - 1, pos.1 - 1));
             }
-            (true, 'J', Direction::West) | (false, 'J', Direction::North) => {
+            (true, 'J', Direction::South) | (false, 'J', Direction::East) => {
                 potential_inside.push((pos.0, pos.1 + 1));
                 potential_inside.push((pos.0 + 1, pos.1 + 1));
                 potential_inside.push((pos.0 + 1, pos.1));
             }
-            ('7', Direction::North) => {}
-            ('7', Direction::East) => {}
-            ('F', Direction::North) => {}
-            ('F', Direction::West) => {}
+            (true, '7', Direction::North) | (false, '7', Direction::East) => {
+                potential_inside.push((pos.0 + 1, pos.1 - 1));
+            }
+            (true, '7', Direction::East) | (false, '7', Direction::North) => {
+                potential_inside.push((pos.0, pos.1 + 1));
+                potential_inside.push((pos.0 - 1, pos.1 + 1));
+                potential_inside.push((pos.0 - 1, pos.1));
+            }
+            (true, 'F', Direction::West) | (false, 'F', Direction::North) => {
+                potential_inside.push((pos.0 + 1, pos.1 + 1));
+            }
+            (true, 'F', Direction::North) | (false, 'F', Direction::West) => {
+                potential_inside.push((pos.0, pos.1 - 1));
+                potential_inside.push((pos.0 - 1, pos.1 - 1));
+                potential_inside.push((pos.0 - 1, pos.1));
+            }
+            (_, 'S', _) => {}
             _ => panic!("Error can't follow pipe: {:?},{:?}", pipe, dir),
         };
+
+        while let Some(p) = potential_inside.pop() {
+            if path_points.contains(&p) || inside.contains(&p) {
+                continue;
+            }
+            // must be a valid point
+            inside.push(p);
+            // add all of its neighbors
+            potential_inside.push((p.0 - 1, p.1 - 1));
+            potential_inside.push((p.0 - 1, p.1));
+            potential_inside.push((p.0 - 1, p.1 + 1));
+            potential_inside.push((p.0, p.1 - 1));
+            // potential_inside.push((p.0, p.1));
+            potential_inside.push((p.0, p.1 + 1));
+            potential_inside.push((p.0 + 1, p.1 - 1));
+            potential_inside.push((p.0 + 1, p.1));
+            potential_inside.push((p.0 + 1, p.1 + 1));
+        }
     }
+    inside.len() as u32
 }
 
 pub fn run_day10_p1() -> u32 {
@@ -234,6 +267,30 @@ mod test {
         .L-SJ.L--J.\n\
         ...........";
 
+    const EXAMPLE3: &str = "\
+        .F----7F7F7F7F-7....\n\
+        .|F--7||||||||FJ....\n\
+        .||.FJ||||||||L7....\n\
+        FJL7L7LJLJ||LJ.L-7..\n\
+        L--J.L7...LJF7F-7L7.\n\
+        ....F-J..F7SJ|L7L7L7\n\
+        ....L7.F7||L7|.L7L7|\n\
+        .....|FJLJ|FJ|F7|.LJ\n\
+        ....FJL-7.||.||||...\n\
+        ....L---J.LJ.LJLJ...";
+
+    const EXAMPLE4: &str = "\
+        FF7F7F7F7F7F7F7F---7\n\
+        L|SJ||||||||||||F--J\n\
+        FL-7LJLJ||||||LJL-77\n\
+        F--JF--7||LJLJ7F7FJ-\n\
+        L---JF-JLJ.||-FJLJJ7\n\
+        |F|F-JF---7F7-L7L|7|\n\
+        |FFJF7L7F-JF7|JL---7\n\
+        7-L-JL7||F7|L7F-7F7|\n\
+        L.L7LFJ|||||FJL7||LJ\n\
+        L7JLJL-JLJLJL--JLJ.L";
+
     #[test]
     fn test_day10_p1_example() {
         assert_eq!(day10_p1(EXAMPLE), 8)
@@ -245,12 +302,27 @@ mod test {
     }
 
     #[test]
+    fn test_day10_p2_example2() {
+        assert_eq!(day10_p2(EXAMPLE2), 4)
+    }
+
+    #[test]
+    fn test_day10_p2_example3() {
+        assert_eq!(day10_p2(EXAMPLE3), 8)
+    }
+
+    #[test]
+    fn test_day10_p2_example4() {
+        assert_eq!(day10_p2(EXAMPLE4), 10)
+    }
+
+    #[test]
     fn test_day10_p1() {
         assert_eq!(run_day10_p1(), 6823)
     }
 
-    // #[test]
-    // fn test_day10_p2() {
-    //     assert_eq!(run_day10_p2(), 84266818)
-    // }
+    #[test]
+    fn test_day10_p2() {
+        assert_eq!(run_day10_p2(), 415)
+    }
 }
