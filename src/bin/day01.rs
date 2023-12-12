@@ -1,3 +1,4 @@
+//! Day 1: Trebuchet?!
 use std::fs::read_to_string;
 
 /// Implements the main line-by-line logic of Day 1 part 1

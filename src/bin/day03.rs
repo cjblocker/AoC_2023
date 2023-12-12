@@ -1,3 +1,4 @@
+//! Day 3: Gear Ratios
 #![allow(clippy::needless_range_loop)] // I find the take(.).skip(.) syntax unclear
 use std::collections::HashMap;
 use std::fs::read_to_string;

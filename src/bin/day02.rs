@@ -1,3 +1,4 @@
+//! Day 2: Cube Conundrum
 use regex::Regex;
 use std::fs::read_to_string;
 

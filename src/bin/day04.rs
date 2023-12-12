@@ -1,3 +1,4 @@
+//! Day 4: Scratchcards
 use std::fs::read_to_string;
 
 /// Each card has winning numbers and given numbers. The points of a card is the

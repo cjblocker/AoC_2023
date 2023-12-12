@@ -1,4 +1,4 @@
-//! Day 9: Mirage Maintenance
+//! Day 11: Cosmic Expansion
 use std::env;
 use std::fs::read_to_string;
 

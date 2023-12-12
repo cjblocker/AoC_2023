@@ -1,3 +1,4 @@
+//! Day 10: Pipe Maze
 use std::fs::read_to_string;
 
 #[derive(Debug, Clone, Copy)]
@@ -10,14 +11,7 @@ enum Direction {
 
 /// Find distance to farthest point in loop (ie length of loop divided by 2)
 fn day10_p1(chart: &str) -> u32 {
-    let chart: Vec<Vec<char>> = chart
-        .lines()
-        .map(|line| {
-            let mut line: Vec<char> = line.chars().collect();
-            line.push('.'); // avoid line-end boundary condition
-            line
-        })
-        .collect();
+    let chart: Vec<Vec<char>> = chart.lines().map(|line| line.chars().collect()).collect();
 
     let mut start = None;
     for (ii, line) in chart.iter().enumerate() {
@@ -69,15 +63,10 @@ fn day10_p1(chart: &str) -> u32 {
 
 /// Compute number of points enclosed by the inside of the loop
 /// a sort of discrete greens theorem.
+/// (Update: the "discrete green's theorem is the "shoelace formula"
+/// which we would combine with Pick's Theorem to count inside points).
 fn day10_p2(chart: &str) -> u32 {
-    let chart: Vec<Vec<char>> = chart
-        .lines()
-        .map(|line| {
-            let mut line: Vec<char> = line.chars().collect();
-            line.push('.'); // avoid line-end boundary condition
-            line
-        })
-        .collect();
+    let chart: Vec<Vec<char>> = chart.lines().map(|line| line.chars().collect()).collect();
 
     let mut start = None;
     for (ii, line) in chart.iter().enumerate() {
@@ -204,7 +193,7 @@ fn day10_p2(chart: &str) -> u32 {
                 potential_inside.push((pos.0 - 1, pos.1 - 1));
                 potential_inside.push((pos.0 - 1, pos.1));
             }
-            (_, 'S', _) => {}
+            (_, 'S', _) => {} // shouldn't be possible to have an interior point whose only neighbor is S (so skip!)
             _ => panic!("Error can't follow pipe: {:?},{:?}", pipe, dir),
         };
 
@@ -214,12 +203,12 @@ fn day10_p2(chart: &str) -> u32 {
             }
             // must be a valid point
             inside.push(p);
-            // add all of its neighbors
+            // add all of its neighbors (flood-fill)
             potential_inside.push((p.0 - 1, p.1 - 1));
             potential_inside.push((p.0 - 1, p.1));
             potential_inside.push((p.0 - 1, p.1 + 1));
             potential_inside.push((p.0, p.1 - 1));
-            // potential_inside.push((p.0, p.1));
+            // (( potential_inside.push((p.0, p.1)); )) <- cur point
             potential_inside.push((p.0, p.1 + 1));
             potential_inside.push((p.0 + 1, p.1 - 1));
             potential_inside.push((p.0 + 1, p.1));

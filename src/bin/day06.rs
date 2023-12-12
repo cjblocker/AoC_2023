@@ -1,3 +1,4 @@
+//! Day 6: Wait For It
 use std::env;
 
 /// Computes the number of different amounts of whole milliseconds we could hold the boat button
