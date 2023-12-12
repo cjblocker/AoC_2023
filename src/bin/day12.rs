@@ -1,11 +1,58 @@
 //! Day 12: Hot Springs
 use std::env;
 use std::fs::read_to_string;
+// use std::num::NonZeroU8;
+
+#[derive(Debug)]
+enum SpringType {
+    Working(u8),
+    Broken(u8),
+    Unknown(u8),
+}
+use SpringType::*;
+
+#[derive(Debug)]
+struct SpringLine {
+    springs: Vec<SpringType>,
+    counts: Vec<u8>,
+}
+
+impl SpringLine {
+    fn new(springs: Vec<char>, counts: Vec<u8>) -> Self {
+        let mut compressed = vec![];
+        let mut cur = ' ';
+        let mut count = 0;
+        for c in springs.into_iter().chain(std::iter::once(' ')) {
+            if c == cur {
+                count += 1;
+            } else if cur != ' ' {
+                let sprg = match c {
+                    '#' => Broken(count),
+                    '.' => Working(count),
+                    '?' => Unknown(count),
+                    _ => panic!("Unknown spring character {:?}", c),
+                };
+                compressed.push(sprg);
+                cur = c;
+                count = 1
+            }
+        }
+        Self {
+            springs: compressed,
+            counts: counts,
+        }
+    }
+
+    fn variants(&self) -> u64 {
+        0
+    }
+}
 
 fn validate(springs: &Vec<char>, counts: &Vec<u64>) -> bool {
-    let mut actual_count = vec![];
     let mut ingroup = false;
     let mut cur_count: u64 = 0;
+    dbg!(springs, counts);
+    let mut counts = counts.iter();
     for c in springs.iter() {
         if *c == '#' {
             cur_count += 1;
@@ -13,17 +60,23 @@ fn validate(springs: &Vec<char>, counts: &Vec<u64>) -> bool {
         } else if *c == '.' {
             if ingroup {
                 ingroup = false;
-                actual_count.push(cur_count);
+                if cur_count != *counts.next().unwrap_or(&0) {
+                    return false;
+                }
                 cur_count = 0;
             }
+        } else if *c == '?' {
+            return true;
         } else {
             panic!("Encounter non-spring in validate; {:?}", c);
         }
     }
     if ingroup {
-        actual_count.push(cur_count);
+        if cur_count != *counts.next().unwrap_or(&0) {
+            return false;
+        }
     }
-    actual_count == counts.as_slice()
+    counts.next().is_none()
 }
 
 fn variants(mut springs: Vec<char>, counts: Vec<u64>) -> u64 {
@@ -33,22 +86,47 @@ fn variants(mut springs: Vec<char>, counts: Vec<u64>) -> u64 {
         .filter(|(_, &c)| c == '?')
         .map(|(ii, _)| ii)
         .collect();
-    let ncount = indices.len();
-    dbg!(&ncount);
-    let total_variations: u128 = 1u128 << (ncount); // 2^(ncount)
-    (0..total_variations)
-        .map(|x| {
-            for (ii, index) in indices.iter().enumerate() {
-                if (x >> (ii as u8)) & 1 == 1 {
-                    springs[*index] = '#'
-                } else {
-                    springs[*index] = '.'
-                }
-            }
+
+    variants_inner(
+        {
+            springs[indices[0]] = '#';
             springs.clone()
-        })
-        .filter(|spring_var| validate(&spring_var, &counts))
-        .count() as u64
+        },
+        &counts,
+        &indices[1..],
+    ) + variants_inner(
+        {
+            springs[indices[0]] = '.';
+            springs.clone()
+        },
+        &counts,
+        &indices[1..],
+    )
+}
+
+fn variants_inner(mut springs: Vec<char>, counts: &Vec<u64>, indices: &[usize]) -> u64 {
+    if !validate(&springs, counts) {
+        return 0;
+    }
+    if indices.is_empty() {
+        return 1;
+    }
+
+    variants_inner(
+        {
+            springs[indices[0]] = '#';
+            springs.clone()
+        },
+        &counts,
+        &indices[1..],
+    ) + variants_inner(
+        {
+            springs[indices[0]] = '.';
+            springs.clone()
+        },
+        &counts,
+        &indices[1..],
+    )
 }
 
 fn day12_p1(data: &str) -> u64 {
@@ -82,6 +160,7 @@ fn day12_p2(data: &str) -> u64 {
                 springs.extend_from_within(..n);
                 counts.extend_from_within(..m);
             }
+            // SpringLine::new(springs, counts).variants()
             variants(springs, counts)
         })
         .sum()
@@ -131,10 +210,10 @@ mod test {
         assert_eq!(day12_p1(EXAMPLE), 21)
     }
 
-    // #[test]
-    // fn test_day12_p2_example() {
-    //     assert_eq!(day12_p2(EXAMPLE), 525152)
-    // }
+    #[test]
+    fn test_day12_p2_example() {
+        assert_eq!(day12_p2(EXAMPLE), 525152)
+    }
 
     #[test]
     fn test_day12_p1() {
