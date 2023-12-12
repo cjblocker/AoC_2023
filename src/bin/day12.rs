@@ -51,7 +51,6 @@ impl SpringLine {
 fn validate(springs: &Vec<char>, counts: &Vec<u64>) -> bool {
     let mut ingroup = false;
     let mut cur_count: u64 = 0;
-    dbg!(springs, counts);
     let mut counts = counts.iter();
     for c in springs.iter() {
         if *c == '#' {
@@ -66,6 +65,9 @@ fn validate(springs: &Vec<char>, counts: &Vec<u64>) -> bool {
                 cur_count = 0;
             }
         } else if *c == '?' {
+            if ingroup && cur_count > *counts.next().unwrap_or(&0) {
+                return false;
+            }
             return true;
         } else {
             panic!("Encounter non-spring in validate; {:?}", c);
@@ -117,14 +119,14 @@ fn variants_inner(mut springs: Vec<char>, counts: &Vec<u64>, indices: &[usize]) 
             springs[indices[0]] = '#';
             springs.clone()
         },
-        &counts,
+        counts,
         &indices[1..],
     ) + variants_inner(
         {
             springs[indices[0]] = '.';
             springs.clone()
         },
-        &counts,
+        counts,
         &indices[1..],
     )
 }
@@ -161,6 +163,7 @@ fn day12_p2(data: &str) -> u64 {
                 counts.extend_from_within(..m);
             }
             // SpringLine::new(springs, counts).variants()
+            println!(".");
             variants(springs, counts)
         })
         .sum()
