@@ -82,24 +82,26 @@ impl SpringLine {
                     .sum()
             })
             .collect();
-        // dbg!(&groups);
-
-        generate_partitions(&self.counts, groups.len())
-            .into_iter()
-            .filter(|counts| {
-                counts
+        let minimums: Vec<u64> = groups
+            .iter()
+            .map(|group| {
+                group
                     .iter()
-                    .map(|x| {
-                        if x.is_empty() {
-                            0
-                        } else {
-                            (x.len() as u64 - 1) + x.iter().sum::<u64>()
-                        }
+                    .map(|spring| match spring {
+                        Broken(count) => *count as u64,
+                        _ => 0,
                     })
-                    .zip(capacities.iter())
-                    .all(|(count, cap)| cap >= &count)
+                    .sum()
             })
+            .collect();
+        // dbg!(&groups);
+        // dbg!(&capacities);
+        generate_partitions(&self.counts, &capacities, &minimums, groups.len())
+            .into_iter()
             .map(|counts| {
+                // let tmp: Vec<(_, _)> = groups.iter().zip(counts.iter()).collect();
+                // dbg!(tmp);
+
                 groups
                     .iter()
                     .zip(counts)
@@ -115,20 +117,52 @@ impl SpringLine {
     }
 }
 
-fn generate_partitions(slice: &[u64], pieces: usize) -> Vec<Vec<Vec<u64>>> {
+fn generate_partitions(
+    slice: &[u64],
+    capacities: &[u64],
+    minimums: &[u64],
+    pieces: usize,
+) -> Vec<Vec<Vec<u64>>> {
     if pieces == 0 {
         panic!("called generate partitions with pieces=0 and {:?}", slice);
     }
     if pieces == 1 {
-        return vec![vec![slice.to_vec()]];
+        let cur = slice.to_vec();
+        let need = {
+            if cur.is_empty() {
+                0
+            } else {
+                (cur.len() as u64 - 1) + cur.iter().sum::<u64>()
+            }
+        };
+        if capacities[0] < need || need < minimums[0] {
+            return vec![];
+        }
+        return vec![vec![cur]];
     }
     let mut results = vec![];
     for split in 0..=slice.len() {
-        let part = generate_partitions(&slice[split..], pieces - 1);
+        let cur = slice[..split].to_vec();
+        let need = {
+            if cur.is_empty() {
+                0
+            } else {
+                (cur.len() as u64 - 1) + cur.iter().sum::<u64>()
+            }
+        };
+        if capacities[0] < need || need < minimums[0] {
+            continue;
+        }
+        let part = generate_partitions(
+            &slice[split..],
+            &capacities[1..],
+            &minimums[1..],
+            pieces - 1,
+        );
         for p in part.into_iter() {
-            let mut cur = vec![slice[..split].to_vec()];
-            cur.extend(p);
-            results.push(cur);
+            let mut cur2 = vec![cur.clone()];
+            cur2.extend(p);
+            results.push(cur2);
         }
     }
     results
@@ -247,14 +281,16 @@ fn day12_p1(data: &str) -> u64 {
     data.par_iter()
         .map(|line| {
             let (springs, counts) = line.split_once(' ').unwrap();
-            SpringLine::new(
+            let num = SpringLine::new(
                 springs.chars().collect(),
                 counts
                     .split(',')
                     .map(|x| x.parse::<u64>().unwrap())
                     .collect(),
             )
-            .variants()
+            .variants();
+            // println!("{}", num);
+            num
         })
         .sum()
 }
@@ -276,7 +312,9 @@ fn day12_p2(data: &str) -> u64 {
                 springs.extend_from_within(..n);
                 counts.extend_from_within(..m);
             }
-            SpringLine::new(springs, counts).variants()
+            let num = SpringLine::new(springs, counts).variants();
+            println!("{}", num);
+            num
         })
         .sum()
 }
@@ -340,10 +378,10 @@ mod test {
     //     assert_eq!(day12_p2("????.#...#... 4,1,1"), 16)
     // }
 
-    // #[test]
-    // fn test_day12_p2_example() {
-    //     assert_eq!(day12_p2(EXAMPLE), 525152)
-    // }
+    #[test]
+    fn test_day12_p2_example() {
+        assert_eq!(day12_p2(EXAMPLE), 525152)
+    }
 
     // #[test]
     // fn test_day12_p2_example() {
