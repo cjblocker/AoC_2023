@@ -1,9 +1,9 @@
 //! Day 12: Hot Springs
+use rayon::prelude::*;
 use std::env;
 use std::fs::read_to_string;
-// use std::num::NonZeroU8;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 enum SpringType {
     Working(u8),
     Broken(u8),
@@ -14,28 +14,28 @@ use SpringType::*;
 #[derive(Debug)]
 struct SpringLine {
     springs: Vec<SpringType>,
-    counts: Vec<u8>,
+    counts: Vec<u64>,
 }
 
 impl SpringLine {
-    fn new(springs: Vec<char>, counts: Vec<u8>) -> Self {
+    fn new(springs: Vec<char>, counts: Vec<u64>) -> Self {
         let mut compressed = vec![];
-        let mut cur = ' ';
-        let mut count = 0;
+        let mut last = ' ';
+        let mut count = 1;
         for c in springs.into_iter().chain(std::iter::once(' ')) {
-            if c == cur {
+            if c == last {
                 count += 1;
-            } else if cur != ' ' {
-                let sprg = match c {
+            } else if last != ' ' {
+                let sprg = match last {
                     '#' => Broken(count),
                     '.' => Working(count),
                     '?' => Unknown(count),
                     _ => panic!("Unknown spring character {:?}", c),
                 };
                 compressed.push(sprg);
-                cur = c;
                 count = 1
             }
+            last = c;
         }
         Self {
             springs: compressed,
@@ -44,8 +44,105 @@ impl SpringLine {
     }
 
     fn variants(&self) -> u64 {
-        0
+        let mut groups = vec![];
+        let mut group = vec![];
+        for sprg in self.springs.iter() {
+            match sprg {
+                Working(_) => {
+                    if !group.is_empty() {
+                        groups.push(group);
+                        group = vec![];
+                    }
+                }
+                other => group.push(*other),
+            }
+        }
+        if !group.is_empty() {
+            groups.push(group);
+        }
+        assert!(!groups.is_empty());
+        // dbg!(&groups);
+
+        if groups.len() == 1 {
+            return variants(
+                convert(&groups.into_iter().next().unwrap()),
+                self.counts.iter().map(|&x| Into::into(x)).collect(),
+            );
+        }
+        let capacities: Vec<u64> = groups
+            .iter()
+            .map(|group| {
+                group
+                    .iter()
+                    .map(|spring| match spring {
+                        Working(count) => *count as u64,
+                        Broken(count) => *count as u64,
+                        Unknown(count) => *count as u64,
+                    })
+                    .sum()
+            })
+            .collect();
+        // dbg!(&groups);
+
+        generate_partitions(&self.counts, groups.len())
+            .into_iter()
+            .filter(|counts| {
+                counts
+                    .iter()
+                    .map(|x| {
+                        if x.is_empty() {
+                            0
+                        } else {
+                            (x.len() as u64 - 1) + x.iter().sum::<u64>()
+                        }
+                    })
+                    .zip(capacities.iter())
+                    .all(|(count, cap)| cap >= &count)
+            })
+            .map(|counts| {
+                groups
+                    .iter()
+                    .zip(counts)
+                    .map(|(group, count)| {
+                        // dbg!(&group, &count);
+                        let res = variants(convert(group), count);
+                        // dbg!(res);
+                        res
+                    })
+                    .product::<u64>()
+            })
+            .sum()
     }
+}
+
+fn generate_partitions(slice: &[u64], pieces: usize) -> Vec<Vec<Vec<u64>>> {
+    if pieces == 0 {
+        panic!("called generate partitions with pieces=0 and {:?}", slice);
+    }
+    if pieces == 1 {
+        return vec![vec![slice.to_vec()]];
+    }
+    let mut results = vec![];
+    for split in 0..=slice.len() {
+        let part = generate_partitions(&slice[split..], pieces - 1);
+        for p in part.into_iter() {
+            let mut cur = vec![slice[..split].to_vec()];
+            cur.extend(p);
+            results.push(cur);
+        }
+    }
+    results
+}
+
+fn convert(springs: &Vec<SpringType>) -> Vec<char> {
+    springs
+        .into_iter()
+        .flat_map(|spring| match spring {
+            Working(count) => vec!['.'; *count as usize],
+            Broken(count) => vec!['#'; *count as usize],
+            Unknown(count) => vec!['?'; *count as usize],
+        })
+        .collect()
 }
 
 fn validate(springs: &Vec<char>, counts: &Vec<u64>) -> bool {
@@ -82,6 +179,17 @@ fn validate(springs: &Vec<char>, counts: &Vec<u64>) -> bool {
 }
 
 fn variants(mut springs: Vec<char>, counts: Vec<u64>) -> u64 {
+    if counts.is_empty() {
+        if springs.contains(&'#') {
+            return 0;
+        } else {
+            // dbg!(springs);
+            return 1;
+        }
+    }
+    if !validate(&springs, &counts) {
+        return 0;
+    }
     let indices: Vec<usize> = springs
         .iter()
         .enumerate()
@@ -89,6 +197,9 @@ fn variants(mut springs: Vec<char>, counts: Vec<u64>) -> u64 {
         .map(|(ii, _)| ii)
         .collect();
 
+    if indices.is_empty() {
+        return 1;
+    }
     variants_inner(
         {
             springs[indices[0]] = '#';
@@ -132,22 +243,25 @@ fn variants_inner(mut springs: Vec<char>, counts: &Vec<u64>, indices: &[usize]) 
 }
 
 fn day12_p1(data: &str) -> u64 {
-    data.lines()
+    let data: Vec<&str> = data.lines().collect();
+    data.par_iter()
         .map(|line| {
             let (springs, counts) = line.split_once(' ').unwrap();
-            variants(
+            SpringLine::new(
                 springs.chars().collect(),
                 counts
                     .split(',')
                     .map(|x| x.parse::<u64>().unwrap())
                     .collect(),
             )
+            .variants()
         })
         .sum()
 }
 
 fn day12_p2(data: &str) -> u64 {
-    data.lines()
+    let data: Vec<&str> = data.lines().collect();
+    data.par_iter()
         .map(|line| {
             let (springs, counts) = line.split_once(' ').unwrap();
             let mut springs: Vec<_> = springs.chars().collect();
@@ -162,9 +276,7 @@ fn day12_p2(data: &str) -> u64 {
                 springs.extend_from_within(..n);
                 counts.extend_from_within(..m);
             }
-            // SpringLine::new(springs, counts).variants()
-            println!(".");
-            variants(springs, counts)
+            SpringLine::new(springs, counts).variants()
         })
         .sum()
 }
@@ -214,9 +326,30 @@ mod test {
     }
 
     #[test]
-    fn test_day12_p2_example() {
-        assert_eq!(day12_p2(EXAMPLE), 525152)
+    fn test_day12_p2_example2() {
+        assert_eq!(day12_p2("?###???????? 3,2,1"), 506250)
     }
+
+    // #[test]
+    // fn test_day12_p2_example3() {
+    //     assert_eq!(day12_p2("????.######..#####. 1,6,5"), 2500)
+    // }
+
+    // #[test]
+    // fn test_day12_p2_example4() {
+    //     assert_eq!(day12_p2("????.#...#... 4,1,1"), 16)
+    // }
+
+    // #[test]
+    // fn test_day12_p2_example() {
+    //     assert_eq!(day12_p2(EXAMPLE), 525152)
+    // }
+
+    // #[test]
+    // fn test_day12_p2_example() {
+    //     // "?????.???..????????.???..????????.???..????????.???..????????.???..?? 1,2,2,1,1,2,2,1,1,2,2,1,1,2,2,1,1,2,2,1"
+    //     assert_eq!(day12_p2("?????.???..?? 1,2,2,1"), 20)
+    // }
 
     #[test]
     fn test_day12_p1() {
