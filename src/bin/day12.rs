@@ -118,7 +118,7 @@ impl SpringLine {
                                 n as u64 - count.iter().sum::<u64>() + 1,
                                 count.len() as u64,
                             ),
-                            _ => variants(convert(group), count),
+                            _ => partition_variants(convert(group), &count),
                         };
                         // dbg!(res);
                         res
@@ -224,12 +224,47 @@ fn validate(springs: &Vec<char>, counts: &Vec<u64>) -> bool {
     counts.next().is_none()
 }
 
+fn partition_variants(mut springs: Vec<char>, counts: &[u64]) -> u64 {
+    // "?###????????????#?? 6,3,7"
+    if counts.len() < 2 {
+        return variants(springs.to_vec(), counts.to_vec());
+    }
+    let cur_count = counts[0] as usize;
+    let next_counts = &counts[1..];
+    let next_space = next_counts.iter().sum::<u64>() as usize + (next_counts.len() - 1);
+    let end_stop = springs.len() - next_space;
+    let mut num_broken: usize = springs[..(cur_count)].iter().filter(|&c| *c == '#').count();
+    let mut sum = 0;
+    if (springs[(cur_count) + 1..].len() >= (next_space + (cur_count) + 1))
+        && (springs[..(cur_count + 1)].iter().all(|&c| c == '?'))
+    {
+        // handle case where everything up to cur_count is '.'
+        sum += partition_variants(springs[(cur_count) + 1..].to_vec(), counts);
+    }
+    for split in (cur_count)..end_stop {
+        if num_broken > cur_count {
+            break;
+        }
+        if springs[split] != '?' {
+            num_broken += 1;
+            continue;
+        }
+        let cur_group: &[char] = &springs[..split];
+        let next_groups = &springs[(split + 1)..];
+        println!("{:?}.{:?}", &cur_group, &next_groups);
+        sum += variants(cur_group.to_vec(), vec![cur_count as u64])
+            * partition_variants(next_groups.to_vec(), next_counts);
+        springs[split] = '#';
+        num_broken += 1;
+    }
+    sum
+}
+
 fn variants(mut springs: Vec<char>, counts: Vec<u64>) -> u64 {
     if counts.is_empty() {
         if springs.contains(&'#') {
             return 0;
         } else {
-            // dbg!(springs);
             return 1;
         }
     }
@@ -245,6 +280,13 @@ fn variants(mut springs: Vec<char>, counts: Vec<u64>) -> u64 {
 
     if indices.is_empty() {
         return 1;
+    }
+    if springs.len() == indices.len() {
+        // all ? case
+        return nchoosek(
+            springs.len() as u64 - counts.iter().sum::<u64>() + 1,
+            counts.len() as u64,
+        );
     }
     variants_inner(
         {
@@ -373,6 +415,31 @@ mod test {
     #[test]
     fn test_day12_p1_example() {
         assert_eq!(day12_p1(EXAMPLE), 21);
+    }
+
+    #[test]
+    fn test_day12_p1_example01() {
+        assert_eq!(day12_p1("???.### 1,1,3"), 1);
+    }
+    #[test]
+    fn test_day12_p1_example02() {
+        assert_eq!(day12_p1(".??..??...?##. 1,1,3"), 4);
+    }
+    #[test]
+    fn test_day12_p1_example03() {
+        assert_eq!(day12_p1("?#?#?#?#?#?#?#? 1,3,1,6"), 1);
+    }
+    #[test]
+    fn test_day12_p1_example04() {
+        assert_eq!(day12_p1("????.#...#... 4,1,1"), 1);
+    }
+    #[test]
+    fn test_day12_p1_example05() {
+        assert_eq!(day12_p1("????.######..#####. 1,6,5"), 4);
+    }
+    #[test]
+    fn test_day12_p1_example06() {
+        assert_eq!(day12_p1("?###???????? 3,2,1"), 10);
     }
 
     #[test]
