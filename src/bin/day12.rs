@@ -17,6 +17,12 @@ struct SpringLine {
     counts: Vec<u64>,
 }
 
+fn nchoosek(n: u64, k: u64) -> u64 {
+    let n = n as u128;
+    let k = k as u128;
+    (((n - k + 1)..=n).product::<u128>() / (1..=k).product::<u128>()) as u64
+}
+
 impl SpringLine {
     fn new(springs: Vec<char>, counts: Vec<u64>) -> Self {
         let mut compressed = vec![];
@@ -63,12 +69,12 @@ impl SpringLine {
         assert!(!groups.is_empty());
         // dbg!(&groups);
 
-        if groups.len() == 1 {
-            return variants(
-                convert(&groups.into_iter().next().unwrap()),
-                self.counts.iter().map(|&x| Into::into(x)).collect(),
-            );
-        }
+        // if groups.len() == 1 {
+        //     return variants(
+        //         convert(&groups.into_iter().next().unwrap()),
+        //         self.counts.iter().map(|&x| Into::into(x)).collect(),
+        //     );
+        // }
         let capacities: Vec<u64> = groups
             .iter()
             .map(|group| {
@@ -107,7 +113,13 @@ impl SpringLine {
                     .zip(counts)
                     .map(|(group, count)| {
                         // dbg!(&group, &count);
-                        let res = variants(convert(group), count);
+                        let res = match group[..] {
+                            [Unknown(n)] => nchoosek(
+                                n as u64 - count.iter().sum::<u64>() + 1,
+                                count.len() as u64,
+                            ),
+                            _ => variants(convert(group), count),
+                        };
                         // dbg!(res);
                         res
                     })
@@ -360,22 +372,37 @@ mod test {
 
     #[test]
     fn test_day12_p1_example() {
-        assert_eq!(day12_p1(EXAMPLE), 21)
+        assert_eq!(day12_p1(EXAMPLE), 21);
     }
 
     #[test]
     fn test_day12_p2_example2() {
-        assert_eq!(day12_p2("?###???????? 3,2,1"), 506250)
+        assert_eq!(day12_p2("?###???????? 3,2,1"), 506250);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_day12_p2_example3() {
+        assert_eq!(day12_p2("???#???????????? 8,2"), 45920650);
+    }
+    #[test]
+    fn test_day12_p2_example4() {
+        assert_eq!(day12_p2("????????????? 3,1,3,1"), 30045015);
+    }
+    #[test]
+    #[ignore]
+    fn test_day12_p2_example5() {
+        assert_eq!(day12_p2("?###????????????#?? 6,3,7"), 0);
+    }
+    #[test]
+    #[ignore]
+    fn test_day12_p2_example6() {
+        assert_eq!(day12_p2("??#???????????#? 1,2,10"), 0);
     }
 
     // #[test]
-    // fn test_day12_p2_example3() {
-    //     assert_eq!(day12_p2("????.######..#####. 1,6,5"), 2500)
-    // }
-
-    // #[test]
     // fn test_day12_p2_example4() {
-    //     assert_eq!(day12_p2("????.#...#... 4,1,1"), 16)
+    //     assert_eq!(day12_p2("????.#...#... 4,1,1"), 16);
     // }
 
     #[test]
@@ -386,16 +413,38 @@ mod test {
     // #[test]
     // fn test_day12_p2_example() {
     //     // "?????.???..????????.???..????????.???..????????.???..????????.???..?? 1,2,2,1,1,2,2,1,1,2,2,1,1,2,2,1,1,2,2,1"
-    //     assert_eq!(day12_p2("?????.???..?? 1,2,2,1"), 20)
+    //     assert_eq!(day12_p2("?????.???..?? 1,2,2,1"), 20);
     // }
 
     #[test]
     fn test_day12_p1() {
-        assert_eq!(run_day12_p1(), 7402)
+        assert_eq!(run_day12_p1(), 7402);
+    }
+
+    #[test]
+    fn test_nchoosek() {
+        assert_eq!(nchoosek(5, 3), 10);
+        assert_eq!(nchoosek(9, 3), 84);
+        assert_eq!(nchoosek(11, 4), 330);
+        assert_eq!(nchoosek(13, 2), 78);
+        assert_eq!(nchoosek(17, 10), 19448);
+    }
+
+    #[test]
+    fn test_nchoosek_works() {
+        assert_eq!(day12_p1("?????????? 3,1,1"), nchoosek(10 - 5 + 1, 3));
+    }
+
+    #[test]
+    fn test_nchoosek_works2() {
+        assert_eq!(
+            day12_p1("?###????????????#?? 6,3,7"),
+            nchoosek(19 - 16 + 1, 3)
+        );
     }
 
     // #[test]
     // fn test_day12_p2() {
-    //     assert_eq!(run_day12_p2(), 0)
+    //     assert_eq!(run_day12_p2(), 0);
     // }
 }
