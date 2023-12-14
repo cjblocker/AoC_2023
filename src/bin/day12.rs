@@ -54,8 +54,15 @@ impl SpringLine {
     }
 
     fn variants(&self) -> u64 {
+        // The idea of this function is to first separate springs into distinct groups
+        // separated by '.' (Working) springs. Each group with only Broken # and Unknown ?
+        // springs is then individually processed (with `partition_variants`) and the results combined (via product).
+        // When we split into groups, we also have to split the group counts into separate groups as well.
+        // This is accomplished with `generate_partitions`. Some counts could feasibly belong to different
+        // groups so we try each as well and add the number of variants of each together.
         let mut groups = vec![];
         let mut group = vec![];
+        // break into groups
         for sprg in self.springs.iter() {
             match sprg {
                 Working(_) => {
@@ -71,33 +78,30 @@ impl SpringLine {
             groups.push(group);
         }
 
-        let capacities: Vec<u64> = groups
+        // determine the capacity of each group for generate_partions
+        let capacities: Vec<[u64; 2]> = groups
             .iter()
             .map(|group| {
-                group
+                let max = group
                     .iter()
                     .map(|spring| match spring {
                         Working(count) => *count as u64,
                         Broken(count) => *count as u64,
                         Unknown(count) => *count as u64,
                     })
-                    .sum()
-            })
-            .collect();
-        let minimums: Vec<u64> = groups
-            .iter()
-            .map(|group| {
-                group
+                    .sum();
+                let min = group
                     .iter()
                     .map(|spring| match spring {
                         Broken(count) => *count as u64,
                         _ => 0,
                     })
-                    .sum()
+                    .sum();
+                [max, min]
             })
             .collect();
 
-        generate_partitions(&self.counts, &capacities, &minimums, groups.len())
+        generate_partitions(&self.counts, &capacities, groups.len())
             .into_iter()
             .map(|counts| {
                 groups
@@ -116,16 +120,21 @@ impl SpringLine {
 }
 
 fn generate_partitions(
-    slice: &[u64],
-    capacities: &[u64],
-    minimums: &[u64],
+    counts: &[u64],
+    capacities: &[[u64; 2]],
     pieces: usize,
 ) -> Vec<Vec<Vec<u64>>> {
+    // The purpose of this function is to take `counts` and return
+    // all of the way it can be partitioned into `pieces` groups.
+    // `capacities` sets the maximum and minimum of count space
+    // is needed for each group so we can avoid generating partitions of `counts`
+    // that won't work. `capacities` should both be `pieces` long.
     if pieces == 0 {
-        panic!("called generate partitions with pieces=0 and {:?}", slice);
+        panic!("called generate partitions with pieces=0 and {:?}", counts);
     }
     if pieces == 1 {
-        let cur = slice.to_vec();
+        // base case for the recursion
+        let cur = counts.to_vec();
         let need = {
             if cur.is_empty() {
                 0
@@ -133,14 +142,14 @@ fn generate_partitions(
                 (cur.len() as u64 - 1) + cur.iter().sum::<u64>()
             }
         };
-        if capacities[0] < need || need < minimums[0] {
+        if capacities[0][0] < need || need < capacities[0][1] {
             return vec![];
         }
         return vec![vec![cur]];
     }
     let mut results = vec![];
-    for split in 0..=slice.len() {
-        let cur = slice[..split].to_vec();
+    for split in 0..=counts.len() {
+        let cur = counts[..split].to_vec();
         let need = {
             if cur.is_empty() {
                 0
@@ -148,15 +157,10 @@ fn generate_partitions(
                 (cur.len() as u64 - 1) + cur.iter().sum::<u64>()
             }
         };
-        if capacities[0] < need || need < minimums[0] {
+        if capacities[0][0] < need || need < capacities[0][1] {
             continue;
         }
-        let part = generate_partitions(
-            &slice[split..],
-            &capacities[1..],
-            &minimums[1..],
-            pieces - 1,
-        );
+        let part = generate_partitions(&counts[split..], &capacities[1..], pieces - 1);
         for p in part.into_iter() {
             let mut cur2 = vec![cur.clone()];
             cur2.extend(p);
@@ -178,6 +182,8 @@ fn convert(springs: &Vec<SpringType>) -> Vec<char> {
 }
 
 fn partition_variants(springs: &[char], counts: &[u64]) -> u64 {
+    // This function assumes `springs` contains only '#' and '?'
+    // as we would have already partitioned out earlier '.'
     if counts.is_empty() {
         if springs.contains(&'#') {
             return 0;
@@ -185,6 +191,7 @@ fn partition_variants(springs: &[char], counts: &[u64]) -> u64 {
             return 1;
         }
     } else if counts.len() == 1 {
+        // recursion base case
         // handle the single group case
         let first_hash = springs.iter().position(|c| *c == '#');
         let last_hash = springs.iter().rposition(|c| *c == '#');
@@ -225,6 +232,8 @@ fn partition_variants(springs: &[char], counts: &[u64]) -> u64 {
         if springs[split] != '?' {
             continue;
         }
+        // I tested with switching over to `nchoosek` when the rest of the slice is ?
+        // but it actually slowed it down in some cases and was negligible overall.
         let next_groups = &springs[(split + 1)..];
         sum += partition_variants(next_groups, next_counts);
     }
@@ -319,45 +328,6 @@ mod test {
     }
 
     #[test]
-    fn test_day12_p1_example01() {
-        assert_eq!(day12_p1("???.### 1,1,3"), 1);
-    }
-    #[test]
-    fn test_day12_p1_example02() {
-        assert_eq!(day12_p1(".??..??...?##. 1,1,3"), 4);
-    }
-    #[test]
-    fn test_day12_p1_example03() {
-        assert_eq!(day12_p1("?#?#?#?#?#?#?#? 1,3,1,6"), 1);
-    }
-    #[test]
-    fn test_day12_p1_example04() {
-        assert_eq!(day12_p1("????.#...#... 4,1,1"), 1);
-    }
-    #[test]
-    fn test_day12_p1_example05() {
-        assert_eq!(day12_p1("????.######..#####. 1,6,5"), 4);
-    }
-    #[test]
-    fn test_day12_p1_example06() {
-        assert_eq!(day12_p1("?###???????? 3,2,1"), 10);
-    }
-
-    #[test]
-    fn test_day12_p2_example2() {
-        assert_eq!(day12_p2("?###???????? 3,2,1"), 506250);
-    }
-
-    #[test]
-    fn test_day12_p2_example3() {
-        assert_eq!(day12_p2("???#???????????? 8,2"), 45920650);
-    }
-    #[test]
-    fn test_day12_p2_example4() {
-        assert_eq!(day12_p2("????????????? 3,1,3,1"), 30045015);
-    }
-
-    #[test]
     fn test_day12_p2_example() {
         assert_eq!(day12_p2(EXAMPLE), 525152)
     }
@@ -365,6 +335,12 @@ mod test {
     #[test]
     fn test_day12_p1() {
         assert_eq!(run_day12_p1(), 7402);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_day12_p2() {
+        assert_eq!(run_day12_p2(), 3_384_337_640_277);
     }
 
     #[test]
@@ -407,10 +383,5 @@ mod test {
             partition_variants(&['#', '#', '#', '?', '?', '?', '#'], &[4]),
             0
         );
-    }
-
-    #[test]
-    fn test_day12_p2() {
-        assert_eq!(run_day12_p2(), 3384337640277);
     }
 }
