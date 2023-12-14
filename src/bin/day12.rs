@@ -2,6 +2,10 @@
 use rayon::prelude::*;
 use std::env;
 use std::fs::read_to_string;
+use std::time::Instant;
+
+// This one took me two days, and the code along the way was pretty ugly (still pretty ugly).
+// My final solution still takes around 20 seconds to solve it.
 
 #[derive(Debug, Clone, Copy)]
 enum SpringType {
@@ -66,15 +70,7 @@ impl SpringLine {
         if !group.is_empty() {
             groups.push(group);
         }
-        assert!(!groups.is_empty());
-        // dbg!(&groups);
 
-        // if groups.len() == 1 {
-        //     return variants(
-        //         convert(&groups.into_iter().next().unwrap()),
-        //         self.counts.iter().map(|&x| Into::into(x)).collect(),
-        //     );
-        // }
         let capacities: Vec<u64> = groups
             .iter()
             .map(|group| {
@@ -100,28 +96,18 @@ impl SpringLine {
                     .sum()
             })
             .collect();
-        // dbg!(&groups);
-        // dbg!(&capacities);
+
         generate_partitions(&self.counts, &capacities, &minimums, groups.len())
             .into_iter()
             .map(|counts| {
-                // let tmp: Vec<(_, _)> = groups.iter().zip(counts.iter()).collect();
-                // dbg!(tmp);
-
                 groups
                     .iter()
                     .zip(counts)
-                    .map(|(group, count)| {
-                        // dbg!(&group, &count);
-                        let res = match group[..] {
-                            [Unknown(n)] => nchoosek(
-                                n as u64 - count.iter().sum::<u64>() + 1,
-                                count.len() as u64,
-                            ),
-                            _ => partition_variants(&convert(group), &count),
-                        };
-                        // dbg!(res);
-                        res
+                    .map(|(group, count)| match group[..] {
+                        [Unknown(n)] => {
+                            nchoosek(n as u64 - count.iter().sum::<u64>() + 1, count.len() as u64)
+                        }
+                        _ => partition_variants(&convert(group), &count),
                     })
                     .product::<u64>()
             })
@@ -228,8 +214,6 @@ fn partition_variants(springs: &[char], counts: &[u64]) -> u64 {
     let next_space = next_counts.iter().sum::<u64>() as usize + (next_counts.len() - 1);
     let end_stop = usize::min(springs.len() - next_space, first_hash + cur_count + 1);
 
-    // dbg!(cur_count, end_stop);
-
     let mut sum = 0;
     if (springs[(cur_count) + 1..].len() >= (next_space + cur_count + 1))
         && (springs[..(cur_count + 1)].iter().all(|&c| c == '?'))
@@ -249,19 +233,17 @@ fn partition_variants(springs: &[char], counts: &[u64]) -> u64 {
 
 fn day12_p1(data: &str) -> u64 {
     let data: Vec<&str> = data.lines().collect();
-    data.iter()
+    data.par_iter()
         .map(|line| {
             let (springs, counts) = line.split_once(' ').unwrap();
-            let num = SpringLine::new(
+            SpringLine::new(
                 springs.chars().collect(),
                 counts
                     .split(',')
                     .map(|x| x.parse::<u64>().unwrap())
                     .collect(),
             )
-            .variants();
-            // println!("{}", num);
-            num
+            .variants()
         })
         .sum()
 }
@@ -283,9 +265,7 @@ fn day12_p2(data: &str) -> u64 {
                 springs.extend_from_within(..n);
                 counts.extend_from_within(..m);
             }
-            let num = SpringLine::new(springs, counts).variants();
-            println!("{}", num);
-            num
+            SpringLine::new(springs, counts).variants()
         })
         .sum()
 }
@@ -309,11 +289,15 @@ fn main() {
         true
     };
     if part1 {
+        let now = Instant::now();
         let sol = run_day12_p1();
-        println!("Day 12 part 1 solution is: {sol}");
+        let elapsed = now.elapsed().as_secs();
+        println!("Day 12 part 1 solution is: {sol} in {elapsed} seconds");
     } else {
+        let now = Instant::now();
         let sol = run_day12_p2();
-        println!("Day 12 part 2 solution is: {sol}");
+        let elapsed = now.elapsed().as_secs();
+        println!("Day 12 part 2 solution is: {sol} in {elapsed} seconds");
     }
 }
 
@@ -373,21 +357,10 @@ mod test {
         assert_eq!(day12_p2("????????????? 3,1,3,1"), 30045015);
     }
 
-    // #[test]
-    // fn test_day12_p2_example4() {
-    //     assert_eq!(day12_p2("????.#...#... 4,1,1"), 16);
-    // }
-
     #[test]
     fn test_day12_p2_example() {
         assert_eq!(day12_p2(EXAMPLE), 525152)
     }
-
-    // #[test]
-    // fn test_day12_p2_example() {
-    //     // "?????.???..????????.???..????????.???..????????.???..????????.???..?? 1,2,2,1,1,2,2,1,1,2,2,1,1,2,2,1,1,2,2,1"
-    //     assert_eq!(day12_p2("?????.???..?? 1,2,2,1"), 20);
-    // }
 
     #[test]
     fn test_day12_p1() {
@@ -436,8 +409,8 @@ mod test {
         );
     }
 
-    // #[test]
-    // fn test_day12_p2() {
-    //     assert_eq!(run_day12_p2(), 0);
-    // }
+    #[test]
+    fn test_day12_p2() {
+        assert_eq!(run_day12_p2(), 3384337640277);
+    }
 }
