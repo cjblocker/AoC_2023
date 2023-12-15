@@ -49,7 +49,7 @@ impl SpringLine {
         }
         Self {
             springs: compressed,
-            counts: counts,
+            counts,
         }
     }
 
@@ -170,9 +170,9 @@ fn generate_partitions(
     results
 }
 
-fn convert(springs: &Vec<SpringType>) -> Vec<char> {
+fn convert(springs: &[SpringType]) -> Vec<char> {
     springs
-        .into_iter()
+        .iter()
         .flat_map(|spring| match spring {
             Working(count) => vec!['.'; *count as usize],
             Broken(count) => vec!['#'; *count as usize],

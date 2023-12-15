@@ -1,4 +1,5 @@
 //! Day 13: Point of Incidence
+#![allow(clippy::needless_range_loop)]
 use std::env;
 use std::fs::read_to_string;
 use std::time::Instant;
@@ -30,7 +31,7 @@ fn day13_p1_single(chart: &[&[u8]]) -> u64 {
         }
         return (jj + 1) as u64;
     }
-    return 0;
+    0
 }
 
 fn day13_p2_single(chart: &[&[u8]]) -> u64 {
@@ -72,7 +73,7 @@ fn day13_p2_single(chart: &[&[u8]]) -> u64 {
             return (jj + 1) as u64;
         }
     }
-    return 0;
+    0
 }
 
 fn day13_p1(data: &str) -> u64 {

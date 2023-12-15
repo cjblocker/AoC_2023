@@ -1,4 +1,5 @@
 //! Day 14: Parabolic Reflector Dish
+#![allow(clippy::needless_range_loop)]
 use std::env;
 use std::fs::read_to_string;
 use std::time::Instant;
@@ -166,7 +167,7 @@ fn compute_load(chart: &Vec<Vec<u8>>) -> usize {
 }
 
 #[allow(dead_code)]
-fn print_chart(chart: &Vec<Vec<u8>>) {
+fn print_chart(chart: &[Vec<u8>]) {
     for line in chart.iter() {
         println!("{}", std::str::from_utf8(line).unwrap());
     }
