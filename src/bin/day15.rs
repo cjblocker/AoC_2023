@@ -11,7 +11,7 @@ struct Lens<'a> {
 }
 
 fn holiday_hash(data: &[u8]) -> u8 {
-    data.into_iter()
+    data.iter()
         .fold(0, |acc, &x| acc.wrapping_add(x).wrapping_mul(17))
 }
 
@@ -48,7 +48,7 @@ fn day15_p2(data: &str) -> usize {
                 }
                 if !found {
                     lensbox.push(Lens {
-                        label: label,
+                        label,
                         focal: f,
                     });
                 }
