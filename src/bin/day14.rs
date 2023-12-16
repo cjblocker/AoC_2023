@@ -239,8 +239,8 @@ fn main() {
     } else {
         let now = Instant::now();
         let sol = run_day14_p2();
-        let elapsed = now.elapsed().as_secs();
-        println!("Day 14 part 2 solution is: {sol} in {elapsed} seconds");
+        let elapsed = now.elapsed().as_millis();
+        println!("Day 14 part 2 solution is: {sol} in {elapsed} ms");
     }
 }
 
