@@ -1,5 +1,4 @@
 //! Day 15: Lens Library
-#![allow(clippy::needless_range_loop)]
 use std::env;
 use std::fs::read_to_string;
 use std::time::Instant;
@@ -47,10 +46,7 @@ fn day15_p2(data: &str) -> usize {
                     }
                 }
                 if !found {
-                    lensbox.push(Lens {
-                        label,
-                        focal: f,
-                    });
+                    lensbox.push(Lens { label, focal: f });
                 }
             }
             _ => panic!("Found {:?}", std::str::from_utf8(x).unwrap()),
