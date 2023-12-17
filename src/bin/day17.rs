@@ -107,7 +107,7 @@ struct DirState<const N: usize, Type> {
     vert: [[Type; N]; N],
 }
 
-fn day17_p1<const N: usize>(data: &str) -> u16 {
+fn find_path<const N: usize, const MINSTEPS: usize, const MAXSTEPS: usize>(data: &str) -> u16 {
     let mut chart = [[0u16; N]; N];
     for (chart_line, data_line) in chart
         .iter_mut()
@@ -131,15 +131,17 @@ fn day17_p1<const N: usize>(data: &str) -> u16 {
     // visit three below start
     let mut cur_indx = start_indx;
     let mut dist = 0;
-    for _ in 0..3 {
+    for step in 0..MAXSTEPS {
         cur_indx = if let Some(cur_indx) = cur_indx.down() {
             dist += chart[cur_indx.row][cur_indx.col];
-            distance.vert[cur_indx.row][cur_indx.col] = dist;
-            pqueue.push(Node {
-                cost: dist,
-                position: cur_indx,
-                direction: Vertical,
-            });
+            if step >= (MINSTEPS - 1) {
+                distance.vert[cur_indx.row][cur_indx.col] = dist;
+                pqueue.push(Node {
+                    cost: dist,
+                    position: cur_indx,
+                    direction: Vertical,
+                });
+            }
             cur_indx
         } else {
             break;
@@ -148,15 +150,17 @@ fn day17_p1<const N: usize>(data: &str) -> u16 {
     // visit three to the right of start
     let mut cur_indx = start_indx;
     let mut dist = 0;
-    for _ in 0..3 {
+    for step in 0..MAXSTEPS {
         cur_indx = if let Some(cur_indx) = cur_indx.right() {
             dist += chart[cur_indx.row][cur_indx.col];
-            distance.horz[cur_indx.row][cur_indx.col] = dist;
-            pqueue.push(Node {
-                cost: dist,
-                position: cur_indx,
-                direction: Horizontal,
-            });
+            if step >= (MINSTEPS - 1) {
+                distance.horz[cur_indx.row][cur_indx.col] = dist;
+                pqueue.push(Node {
+                    cost: dist,
+                    position: cur_indx,
+                    direction: Horizontal,
+                });
+            }
             cur_indx
         } else {
             break;
@@ -188,10 +192,12 @@ fn day17_p1<const N: usize>(data: &str) -> u16 {
                 // visit three below indx
                 let mut cur_indx = indx;
                 let mut cur_dist = dist;
-                for _ in 0..3 {
+                for step in 0..MAXSTEPS {
                     cur_indx = if let Some(cur_indx) = cur_indx.down() {
                         cur_dist += chart[cur_indx.row][cur_indx.col];
-                        if cur_dist < distance.vert[cur_indx.row][cur_indx.col] {
+                        if step >= (MINSTEPS - 1)
+                            && cur_dist < distance.vert[cur_indx.row][cur_indx.col]
+                        {
                             pqueue.push(Node {
                                 cost: cur_dist,
                                 position: cur_indx,
@@ -207,10 +213,12 @@ fn day17_p1<const N: usize>(data: &str) -> u16 {
                 // visit three above indx
                 let mut cur_indx = indx;
                 let mut cur_dist = dist;
-                for _ in 0..3 {
+                for step in 0..MAXSTEPS {
                     cur_indx = if let Some(cur_indx) = cur_indx.up() {
                         cur_dist += chart[cur_indx.row][cur_indx.col];
-                        if cur_dist < distance.vert[cur_indx.row][cur_indx.col] {
+                        if step >= (MINSTEPS - 1)
+                            && cur_dist < distance.vert[cur_indx.row][cur_indx.col]
+                        {
                             pqueue.push(Node {
                                 cost: cur_dist,
                                 position: cur_indx,
@@ -228,10 +236,12 @@ fn day17_p1<const N: usize>(data: &str) -> u16 {
                 // visit three to right of indx
                 let mut cur_indx = indx;
                 let mut cur_dist = dist;
-                for _ in 0..3 {
+                for step in 0..MAXSTEPS {
                     cur_indx = if let Some(cur_indx) = cur_indx.right() {
                         cur_dist += chart[cur_indx.row][cur_indx.col];
-                        if cur_dist < distance.horz[cur_indx.row][cur_indx.col] {
+                        if step >= (MINSTEPS - 1)
+                            && cur_dist < distance.horz[cur_indx.row][cur_indx.col]
+                        {
                             pqueue.push(Node {
                                 cost: cur_dist,
                                 position: cur_indx,
@@ -247,10 +257,12 @@ fn day17_p1<const N: usize>(data: &str) -> u16 {
                 // visit three to left of indx
                 let mut cur_indx = indx;
                 let mut cur_dist = dist;
-                for _ in 0..3 {
+                for step in 0..MAXSTEPS {
                     cur_indx = if let Some(cur_indx) = cur_indx.left() {
                         cur_dist += chart[cur_indx.row][cur_indx.col];
-                        if cur_dist < distance.horz[cur_indx.row][cur_indx.col] {
+                        if step >= (MINSTEPS - 1)
+                            && cur_dist < distance.horz[cur_indx.row][cur_indx.col]
+                        {
                             pqueue.push(Node {
                                 cost: cur_dist,
                                 position: cur_indx,
@@ -269,8 +281,12 @@ fn day17_p1<const N: usize>(data: &str) -> u16 {
     u16::MAX
 }
 
-fn day17_p2(data: &str) -> u16 {
-    0
+fn day17_p1<const N: usize>(data: &str) -> u16 {
+    find_path::<N, 1, 3>(data)
+}
+
+fn day17_p2<const N: usize>(data: &str) -> u16 {
+    find_path::<N, 4, 10>(data)
 }
 
 pub fn run_day17_p1() -> u16 {
@@ -282,7 +298,7 @@ pub fn run_day17_p1() -> u16 {
 pub fn run_day17_p2() -> u16 {
     let filename = "data/day_17.txt";
     let data = read_to_string(filename).unwrap();
-    day17_p2(&data)
+    day17_p2::<141>(&data)
 }
 
 fn main() {
@@ -329,9 +345,8 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn test_day17_p2_example() {
-        assert_eq!(day17_p2(EXAMPLE), 0)
+        assert_eq!(day17_p2::<13>(EXAMPLE), 94)
     }
 
     #[test]
