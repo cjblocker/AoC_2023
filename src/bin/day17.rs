@@ -16,10 +16,12 @@ use Direction::*;
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 struct Node<const N: usize> {
     cost: u16,
+    // This is our graph state
     position: Coordinate<N>,
     direction: Direction,
 }
 
+// I need a custom Ord so my binary heap is a min heap instead of a max heap
 impl<const N: usize> Ord for Node<N> {
     fn cmp(&self, other: &Self) -> Ordering {
         // Notice that the we flip the ordering on costs.
@@ -38,6 +40,7 @@ impl<const N: usize> PartialOrd for Node<N> {
     }
 }
 
+// Coordinates for convenience. It encapsulates boundary conditions
 #[derive(Debug, Clone, Copy, Eq, Hash, PartialEq, PartialOrd, Ord)]
 struct Coordinate<const N: usize> {
     row: usize,
@@ -99,12 +102,19 @@ impl<const N: usize> From<(usize, usize)> for Coordinate<N> {
     }
 }
 
+// Every tile is two nodes depending on whether we got
+// there vertically or horizontally. This keeps track
+// of the shortest distance to all of these nodes.
 #[derive(Debug)]
 struct DirState<const N: usize, Type> {
     horz: [[Type; N]; N],
     vert: [[Type; N]; N],
 }
 
+/// Implements Dijkstra's shortest path algorithm. Each node of our graph is our tile position
+/// and whether we got there horizontally or vertically. Adjacent nodes are all nodes we can
+/// get to by turning and going straight for any valid number of steps(constrained by MINSTEPS and MAXSTEPS).
+/// We are thus choosing each straight segment at a time, not each tile step.
 fn find_path<const N: usize, const MINSTEPS: usize, const MAXSTEPS: usize>(data: &str) -> u16 {
     let mut chart = [[0u16; N]; N];
     for (chart_line, data_line) in chart
@@ -126,7 +136,8 @@ fn find_path<const N: usize, const MINSTEPS: usize, const MAXSTEPS: usize>(data:
     let mut pqueue = BinaryHeap::new();
 
     // visit "nodes" adjacent to starting node
-    // visit three below start
+    // visit three (part 1) below start
+    // TODO: This block is basically copied 6 times with different coordinate method calls
     let mut cur_indx = start_indx;
     let mut dist = 0;
     for step in 0..MAXSTEPS {
@@ -145,7 +156,7 @@ fn find_path<const N: usize, const MINSTEPS: usize, const MAXSTEPS: usize>(data:
             break;
         }
     }
-    // visit three to the right of start
+    // visit three (part 1) to the right of start
     let mut cur_indx = start_indx;
     let mut dist = 0;
     for step in 0..MAXSTEPS {
@@ -181,13 +192,12 @@ fn find_path<const N: usize, const MINSTEPS: usize, const MAXSTEPS: usize>(data:
         };
         if dist != old_dist {
             // this node is out-of-date
-            // dbg!(old_dist, dist, indx);
             assert!(old_dist < dist);
             continue;
         }
         match dir {
             Horizontal => {
-                // visit three below indx
+                // visit three (part 1) below indx
                 let mut cur_indx = indx;
                 let mut cur_dist = dist;
                 for step in 0..MAXSTEPS {
@@ -208,7 +218,7 @@ fn find_path<const N: usize, const MINSTEPS: usize, const MAXSTEPS: usize>(data:
                         break;
                     }
                 }
-                // visit three above indx
+                // visit three (part 1) above indx
                 let mut cur_indx = indx;
                 let mut cur_dist = dist;
                 for step in 0..MAXSTEPS {
@@ -231,7 +241,7 @@ fn find_path<const N: usize, const MINSTEPS: usize, const MAXSTEPS: usize>(data:
                 }
             }
             Vertical => {
-                // visit three to right of indx
+                // visit three (part 1) to right of indx
                 let mut cur_indx = indx;
                 let mut cur_dist = dist;
                 for step in 0..MAXSTEPS {
@@ -252,7 +262,7 @@ fn find_path<const N: usize, const MINSTEPS: usize, const MAXSTEPS: usize>(data:
                         break;
                     }
                 }
-                // visit three to left of indx
+                // visit three (part 1) to left of indx
                 let mut cur_indx = indx;
                 let mut cur_dist = dist;
                 for step in 0..MAXSTEPS {
@@ -276,7 +286,8 @@ fn find_path<const N: usize, const MINSTEPS: usize, const MAXSTEPS: usize>(data:
             }
         }
     }
-    u16::MAX
+    // We should only get here if the destination is unreachable
+    u16::MAX // or panic?
 }
 
 fn day17_p1<const N: usize>(data: &str) -> u16 {
