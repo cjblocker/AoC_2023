@@ -1,7 +1,5 @@
 //! Day 17: Clumsy Crucible
 // experimenting with const generics
-// use rayon::prelude::*;
-// use std::collections::HashSet;
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::env;
@@ -355,8 +353,7 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn test_day17_p2() {
-        assert_eq!(run_day17_p2(), 0);
+        assert_eq!(run_day17_p2(), 1367);
     }
 }
