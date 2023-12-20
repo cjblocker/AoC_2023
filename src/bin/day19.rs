@@ -5,6 +5,76 @@ use std::fs::read_to_string;
 use std::time::Instant;
 
 #[derive(Debug)]
+enum Operator {
+    LessThan(u32),
+    GreaterThan(u32),
+}
+
+#[derive(Debug)]
+enum Condition {
+    X(Operator),
+    M(Operator),
+    A(Operator),
+    S(Operator),
+    True,
+}
+
+#[derive(Debug)]
+struct Conditional {
+    condition: Condition,
+    result: String,
+}
+
+impl From<&str> for Conditional {
+    fn from(data: &str) -> Self {
+        if !data.contains(":") {
+            return Self{condition: Condition:True, result: data.to_string()}
+        }
+        let re = Regex::new(r"([x,m,a,s])([>,<])([0-9]+):([a-zA-Z]+)$").unwrap();
+        let operand = captures[3].parse().unwrap();
+        let operator = match captures[2] {
+            ">" => Operator::GreaterThan(operand),
+            "<" => Operator::LessThan(operand),
+            _ => unreachable!(),
+        };
+        let condition = match captures[1] {
+            'x' => Condition::X(operator),
+            'm' => Condition::M(operator),
+            'a' => Condition::A(operator),
+            's' => Condition::S(operator),
+            _ => unreachable!(),
+        };
+        Self{
+            condition: condition,
+            result: captures[3].to_string(),
+        }
+    }
+}
+
+impl Conditional {
+    fn eval(&self, gizmo: Gizmo) -> Option<String> {
+        let cond = match self.condition {
+            Condition::X(Operator::LessThan(val)) => gizmo.x < val,
+            Condition::X(Operator::GreaterThan(val)) => gizmo.x > val,
+            Condition::M(Operator::LessThan(val)) => gizmo.m < val,
+            Condition::M(Operator::GreaterThan(val)) => gizmo.m > val,
+            Condition::A(Operator::LessThan(val)) => gizmo.a < val,
+            Condition::A(Operator::GreaterThan(val)) => gizmo.a > val,
+            Condition::S(Operator::LessThan(val)) => gizmo.s < val,
+            Condition::S(Operator::GreaterThan(val)) => gizmo.s > val,
+        }
+        if cond {
+            Some(self.result.clone())
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug)]
+struct Rule(Vec<(Attr, String)>);
+
+#[derive(Debug)]
 struct Gizmo {
     x: u32,
     m: u32,
@@ -14,7 +84,6 @@ struct Gizmo {
 
 impl From<&str> for Gizmo {
     fn from(data: &str) -> Self {
-        dbg!(data);
         let re = Regex::new(r"\{x=([0-9]+),m=([0-9]+),a=([0-9]+),s=([0-9]+)\}$").unwrap();
         let captures = re.captures(data.trim()).unwrap();
         Self {
