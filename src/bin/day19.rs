@@ -1,5 +1,6 @@
 //! Day 19: Aplenty
 use regex::Regex;
+use std::collections::HashMap;
 use std::env;
 use std::fs::read_to_string;
 use std::time::Instant;
@@ -27,32 +28,37 @@ struct Conditional {
 
 impl From<&str> for Conditional {
     fn from(data: &str) -> Self {
-        if !data.contains(":") {
-            return Self{condition: Condition:True, result: data.to_string()}
+        // s>2770:qs
+        if !data.contains(':') {
+            return Self {
+                condition: Condition::True,
+                result: data.to_string(),
+            };
         }
         let re = Regex::new(r"([x,m,a,s])([>,<])([0-9]+):([a-zA-Z]+)$").unwrap();
+        let captures = re.captures(data.trim()).unwrap();
         let operand = captures[3].parse().unwrap();
-        let operator = match captures[2] {
+        let operator = match &captures[2] {
             ">" => Operator::GreaterThan(operand),
             "<" => Operator::LessThan(operand),
             _ => unreachable!(),
         };
-        let condition = match captures[1] {
-            'x' => Condition::X(operator),
-            'm' => Condition::M(operator),
-            'a' => Condition::A(operator),
-            's' => Condition::S(operator),
+        let condition = match &captures[1] {
+            "x" => Condition::X(operator),
+            "m" => Condition::M(operator),
+            "a" => Condition::A(operator),
+            "s" => Condition::S(operator),
             _ => unreachable!(),
         };
-        Self{
-            condition: condition,
-            result: captures[3].to_string(),
+        Self {
+            condition,
+            result: captures[4].to_string(),
         }
     }
 }
 
 impl Conditional {
-    fn eval(&self, gizmo: Gizmo) -> Option<String> {
+    fn eval(&self, gizmo: &Gizmo) -> Option<String> {
         let cond = match self.condition {
             Condition::X(Operator::LessThan(val)) => gizmo.x < val,
             Condition::X(Operator::GreaterThan(val)) => gizmo.x > val,
@@ -62,7 +68,8 @@ impl Conditional {
             Condition::A(Operator::GreaterThan(val)) => gizmo.a > val,
             Condition::S(Operator::LessThan(val)) => gizmo.s < val,
             Condition::S(Operator::GreaterThan(val)) => gizmo.s > val,
-        }
+            Condition::True => true,
+        };
         if cond {
             Some(self.result.clone())
         } else {
@@ -70,9 +77,6 @@ impl Conditional {
         }
     }
 }
-
-#[derive(Debug)]
-struct Rule(Vec<(Attr, String)>);
 
 #[derive(Debug)]
 struct Gizmo {
@@ -84,6 +88,7 @@ struct Gizmo {
 
 impl From<&str> for Gizmo {
     fn from(data: &str) -> Self {
+        // "{x=787,m=2655,a=1222,s=2876}"
         let re = Regex::new(r"\{x=([0-9]+),m=([0-9]+),a=([0-9]+),s=([0-9]+)\}$").unwrap();
         let captures = re.captures(data.trim()).unwrap();
         Self {
@@ -95,24 +100,232 @@ impl From<&str> for Gizmo {
     }
 }
 
-fn day19_p1(data: &str) -> usize {
-    let (rules, gizmos) = data.split_once("\n\n").unwrap();
-    let gizmos: Vec<Gizmo> = gizmos.lines().map(Gizmo::from).collect();
-    dbg!(gizmos);
-    1
+impl Gizmo {
+    fn sum(&self) -> u32 {
+        self.x + self.m + self.a + self.s
+    }
 }
 
-fn day19_p2(data: &str) -> usize {
-    0
+fn day19_p1(data: &str) -> u32 {
+    let (ruleset, gizmos) = data.split_once("\n\n").unwrap();
+    let re = Regex::new(r"([a-zA-Z]+)\{(.+)\}$").unwrap();
+    let ruleset: HashMap<String, Vec<Conditional>> = ruleset
+        .lines()
+        .map(|line| {
+            let captures = re.captures(line.trim()).unwrap();
+            let key = captures[1].to_string();
+            let val = captures[2].split(',').map(Conditional::from).collect();
+            (key, val)
+        })
+        .collect();
+    gizmos
+        .lines()
+        .map(Gizmo::from)
+        .filter_map(|gizmo| {
+            let mut key = "in".to_string();
+            while key != "A" && key != "R" {
+                let rules = ruleset.get(&key).unwrap();
+                key = rules.iter().find_map(|rule| rule.eval(&gizmo)).unwrap()
+            }
+            if key == "A" {
+                Some(gizmo.sum())
+            } else if key == "R" {
+                None
+            } else {
+                unreachable!()
+            }
+        })
+        .sum()
 }
 
-pub fn run_day19_p1() -> usize {
+#[derive(Debug)]
+struct GizmoRange {
+    x: (u32, u32),
+    m: (u32, u32),
+    a: (u32, u32),
+    s: (u32, u32),
+}
+
+impl GizmoRange {
+    fn new() -> Self {
+        Self {
+            x: (1, 4001),
+            m: (1, 4001),
+            a: (1, 4001),
+            s: (1, 4001),
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        (self.x.1 <= self.x.0)
+            || (self.m.1 <= self.m.0)
+            || (self.a.1 <= self.a.0)
+            || (self.s.1 <= self.s.0)
+    }
+
+    fn distinct(&self) -> u64 {
+        if self.is_empty() {
+            return 0;
+        }
+        (self.x.1 - self.x.0) as u64
+            * (self.m.1 - self.m.0) as u64
+            * (self.a.1 - self.a.0) as u64
+            * (self.s.1 - self.s.0) as u64
+    }
+
+    fn apply_conditional(self, cond: &Conditional) -> ((String, Self), Option<Self>) {
+        // this return type really shows how bad I setup part 1 for part 2
+        // basically, we split the GizmoRange into possibly two GizmoRanges depending
+        // on the condition. One if forward with a new 'key', and the other is an optional residual
+        // (optional since one condition (True) doesn't split)
+        match cond.condition {
+            Condition::X(Operator::LessThan(val)) => (
+                (
+                    cond.result.clone(),
+                    Self {
+                        x: (self.x.0, u32::min(val, self.x.1)),
+                        ..self
+                    },
+                ),
+                Some(Self {
+                    x: (u32::max(val, self.x.0), self.x.1),
+                    ..self
+                }),
+            ),
+            Condition::X(Operator::GreaterThan(val)) => (
+                (
+                    cond.result.clone(),
+                    Self {
+                        x: (u32::max(val + 1, self.x.0), self.x.1),
+                        ..self
+                    },
+                ),
+                Some(Self {
+                    x: (self.x.0, u32::min(val + 1, self.x.1)),
+                    ..self
+                }),
+            ),
+            Condition::M(Operator::LessThan(val)) => (
+                (
+                    cond.result.clone(),
+                    Self {
+                        m: (self.m.0, u32::min(val, self.m.1)),
+                        ..self
+                    },
+                ),
+                Some(Self {
+                    m: (u32::max(val, self.m.0), self.m.1),
+                    ..self
+                }),
+            ),
+            Condition::M(Operator::GreaterThan(val)) => (
+                (
+                    cond.result.clone(),
+                    Self {
+                        m: (u32::max(val + 1, self.m.0), self.m.1),
+                        ..self
+                    },
+                ),
+                Some(Self {
+                    m: (self.m.0, u32::min(val + 1, self.m.1)),
+                    ..self
+                }),
+            ),
+            Condition::A(Operator::LessThan(val)) => (
+                (
+                    cond.result.clone(),
+                    Self {
+                        a: (self.a.0, u32::min(val, self.a.1)),
+                        ..self
+                    },
+                ),
+                Some(Self {
+                    a: (u32::max(val, self.a.0), self.a.1),
+                    ..self
+                }),
+            ),
+            Condition::A(Operator::GreaterThan(val)) => (
+                (
+                    cond.result.clone(),
+                    Self {
+                        a: (u32::max(val + 1, self.a.0), self.a.1),
+                        ..self
+                    },
+                ),
+                Some(Self {
+                    a: (self.a.0, u32::min(val + 1, self.a.1)),
+                    ..self
+                }),
+            ),
+            Condition::S(Operator::LessThan(val)) => (
+                (
+                    cond.result.clone(),
+                    Self {
+                        s: (self.s.0, u32::min(val, self.s.1)),
+                        ..self
+                    },
+                ),
+                Some(Self {
+                    s: (u32::max(val, self.s.0), self.s.1),
+                    ..self
+                }),
+            ),
+            Condition::S(Operator::GreaterThan(val)) => (
+                (
+                    cond.result.clone(),
+                    Self {
+                        s: (u32::max(val + 1, self.s.0), self.s.1),
+                        ..self
+                    },
+                ),
+                Some(Self {
+                    s: (self.s.0, u32::min(val + 1, self.s.1)),
+                    ..self
+                }),
+            ),
+            Condition::True => ((cond.result.clone(), self), None),
+        }
+    }
+}
+
+fn day19_p2(data: &str) -> u64 {
+    let (ruleset, _) = data.split_once("\n\n").unwrap();
+    let re = Regex::new(r"([a-zA-Z]+)\{(.+)\}$").unwrap();
+    let ruleset: HashMap<String, Vec<Conditional>> = ruleset
+        .lines()
+        .map(|line| {
+            let captures = re.captures(line.trim()).unwrap();
+            let key = captures[1].to_string();
+            let val = captures[2].split(',').map(Conditional::from).collect();
+            (key, val)
+        })
+        .collect();
+    let mut to_process = vec![("in".to_string(), GizmoRange::new())];
+    let mut valid = vec![];
+    while let Some((key, range)) = to_process.pop() {
+        let rules = ruleset.get(&key).unwrap();
+        rules.iter().try_fold(range, |left: GizmoRange, rule| {
+            let (new, residual) = left.apply_conditional(rule);
+            if !new.1.is_empty() {
+                if new.0 == "A" {
+                    valid.push(new.1);
+                } else if new.0 != "R" {
+                    to_process.push(new);
+                }
+            }
+            residual
+        });
+    }
+    valid.into_iter().map(|x| x.distinct()).sum()
+}
+
+pub fn run_day19_p1() -> u32 {
     let filename = "data/day_19.txt";
     let data = read_to_string(filename).unwrap();
     day19_p1(&data)
 }
 
-pub fn run_day19_p2() -> usize {
+pub fn run_day19_p2() -> u64 {
     let filename = "data/day_19.txt";
     let data = read_to_string(filename).unwrap();
     day19_p2(&data)
@@ -166,20 +379,17 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn test_day19_p2_example() {
-        assert_eq!(day19_p2(EXAMPLE), 0)
+        assert_eq!(day19_p2(EXAMPLE), 167409079868000)
     }
 
     #[test]
-    #[ignore]
     fn test_day19_p1() {
-        assert_eq!(run_day19_p1(), 0);
+        assert_eq!(run_day19_p1(), 449531);
     }
 
     #[test]
-    #[ignore]
     fn test_day19_p2() {
-        assert_eq!(run_day19_p2(), 0);
+        assert_eq!(run_day19_p2(), 122756210763577);
     }
 }
