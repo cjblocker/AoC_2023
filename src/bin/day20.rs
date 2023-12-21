@@ -1,5 +1,6 @@
 //! Day 20: Pulse Propagation
 // Feels like a good day to try out dynamic dispatch
+use num::integer::lcm;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::env;
@@ -32,6 +33,7 @@ struct Signal {
 }
 
 impl Signal {
+    #[allow(dead_code)]
     fn to_string(&self) -> String {
         match self.state {
             Pulse::High => self.src.to_owned() + " -high-> " + &self.dst,
@@ -252,16 +254,24 @@ fn day20_p1(data: &str) -> u32 {
 }
 
 fn day20_p2(data: &str) -> u64 {
-    let (mut modules, output) = initialize_system(data);
+    // this took some data inspection. The output "rx" is driven
+    // by a conjunction module "xm". "xm" only goes low when all four
+    // of it's inputs go high in the same cycle. Each of "xm"'s inputs
+    // are independently driven. We find the rate at which each one
+    // turns on and then find the least common multiple of the cycles
+    // to find how many cycle it would take to get them all to line up.
+    let (mut modules, _) = initialize_system(data);
+    let output = "xm".to_string();
     let mut cycle_count = 0;
+    let mut xm_in_cycles = [0; 4];
     while cycle_count == 0 || modules.values().any(|modl| !modl.in_reset_state()) {
-        let mut pulse_count = (0, 0);
         let mut queue = VecDeque::new();
         queue.push_back(Signal {
             state: Pulse::Low,
             src: "button".to_string(),
             dst: "broadcaster".to_string(),
         });
+        cycle_count += 1;
         while let Some(signal) = queue.pop_front() {
             // println!("{}", signal.to_string());
             if signal.dst != output {
@@ -272,22 +282,24 @@ fn day20_p2(data: &str) -> u64 {
                     .into_iter()
                     .for_each(|signal| queue.push_back(signal));
             } else {
+                let i = match &signal.src[..] {
+                    "ft" => 0,
+                    "jz" => 1,
+                    "ng" => 2,
+                    "sv" => 3,
+                    _ => unreachable!(),
+                };
                 match signal.state {
-                    Pulse::Low => pulse_count.0 += 1,
-                    Pulse::High => pulse_count.1 += 1,
+                    Pulse::Low => (),
+                    Pulse::High => xm_in_cycles[i] = cycle_count,
                 }
             }
         }
-        cycle_count += 1;
-        // println!("{cycle_count:?}: {pulse_count:?}");
-        if pulse_count == (1, 0) {
-            return cycle_count;
+        if xm_in_cycles.iter().all(|&x| x != 0) {
+            break;
         }
-        // if cycle_count == 1000 {
-        //     break;
-        // }
     }
-    1001
+    xm_in_cycles.into_iter().fold(1, lcm)
 }
 
 pub fn run_day20_p1() -> u32 {
@@ -343,8 +355,7 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn test_day20_p2() {
-        assert_eq!(run_day20_p2(), 0);
+        assert_eq!(run_day20_p2(), 224602011344203);
     }
 }
