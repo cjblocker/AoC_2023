@@ -4,6 +4,7 @@ use num::integer::lcm;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::env;
+use std::fmt;
 use std::fs::read_to_string;
 use std::ops::Not;
 use std::time::Instant;
@@ -32,13 +33,18 @@ struct Signal {
     dst: String,
 }
 
-impl Signal {
-    #[allow(dead_code)]
-    fn to_string(&self) -> String {
-        match self.state {
-            Pulse::High => self.src.to_owned() + " -high-> " + &self.dst,
-            Pulse::Low => self.src.to_owned() + " -low-> " + &self.dst,
-        }
+impl fmt::Display for Signal {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}{}{}",
+            self.src,
+            match self.state {
+                Pulse::High => " -high-> ",
+                Pulse::Low => " -low-> ",
+            },
+            self.dst
+        )
     }
 }
 
@@ -47,9 +53,7 @@ trait Module {
 
     fn in_reset_state(&self) -> bool;
 
-    fn add_src(&mut self, _src: String) {
-        ()
-    }
+    fn add_src(&mut self, _src: String) {}
 }
 
 #[derive(Debug)]
@@ -151,7 +155,7 @@ fn initialize_system(data: &str) -> (HashMap<String, Box<dyn Module>>, String) {
         .map(|line| {
             let (ident, dest) = line.split_once(" -> ").unwrap();
             let dest: Vec<String> = dest.split(',').map(|x| x.trim().to_owned()).collect();
-            if let Some(rest) = ident.strip_prefix("%") {
+            if let Some(rest) = ident.strip_prefix('%') {
                 dest.iter().for_each(|dst| {
                     sources
                         .entry(dst.to_string())
@@ -166,7 +170,7 @@ fn initialize_system(data: &str) -> (HashMap<String, Box<dyn Module>>, String) {
                         dst: dest,
                     }) as Box<dyn Module>,
                 )
-            } else if let Some(rest) = ident.strip_prefix("&") {
+            } else if let Some(rest) = ident.strip_prefix('&') {
                 dest.iter().for_each(|dst| {
                     sources
                         .entry(dst.to_string())
@@ -214,7 +218,7 @@ fn initialize_system(data: &str) -> (HashMap<String, Box<dyn Module>>, String) {
 fn day20_p1(data: &str) -> u32 {
     let (mut modules, output) = initialize_system(data);
     let mut pulse_counts = vec![];
-    while pulse_counts.len() == 0 || modules.values().any(|modl| !modl.in_reset_state()) {
+    while pulse_counts.is_empty() || modules.values().any(|modl| !modl.in_reset_state()) {
         let mut pulse_count = (0, 0);
         let mut queue = VecDeque::new();
         queue.push_back(Signal {
@@ -223,7 +227,7 @@ fn day20_p1(data: &str) -> u32 {
             dst: "broadcaster".to_string(),
         });
         while let Some(signal) = queue.pop_front() {
-            // println!("{}", signal.to_string());
+            // println!("{signal}");
             match signal.state {
                 Pulse::Low => pulse_count.0 += 1,
                 Pulse::High => pulse_count.1 += 1,
@@ -237,7 +241,7 @@ fn day20_p1(data: &str) -> u32 {
                     .for_each(|signal| queue.push_back(signal));
             }
         }
-        dbg!(&pulse_count);
+        // dbg!(&pulse_count);
         pulse_counts.push(pulse_count);
         if pulse_counts.len() == 1000 {
             break;
