@@ -372,7 +372,6 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn test_day21_p2() {
         assert_eq!(run_day21_p2(), 617_729_401_414_635);
     }

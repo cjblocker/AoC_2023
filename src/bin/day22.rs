@@ -1,5 +1,4 @@
 //! Day 22: Sand Slabs
-// #![allow(dead_code)]
 use core::ops::Range;
 use std::cmp::Ordering;
 use std::env;
@@ -109,12 +108,12 @@ fn settle_bricks(bricks: &mut Vec<Brick>) {
                 .iter()
                 .filter(|b2| b.xy_overlap(b2))
                 .count()
-                == 1));
+                == 1)); // 1 overlap with itself
             assert!(this_layer.iter().all(|b| this_layer
                 .iter()
                 .filter(|b2| b.xy_overlap(b2))
                 .count()
-                == 1));
+                == 1)); // 1 overlap with itself
         }
         // the need to re-sort is subtle
         bricks.sort_unstable();
@@ -124,13 +123,12 @@ fn settle_bricks(bricks: &mut Vec<Brick>) {
 fn day22_p1(data: &str) -> u64 {
     let mut bricks: Vec<Brick> = data.lines().map(Brick::from).collect();
     settle_bricks(&mut bricks);
-    // dbg!(&bricks);
 
     bricks
         .iter()
         .enumerate()
         .map(|(ii, brick)| {
-            let count = bricks
+            bricks
                 .iter()
                 .skip(ii)
                 .filter(|b| brick.supports(b)) // of all bricks supported by this brick
@@ -138,9 +136,7 @@ fn day22_p1(data: &str) -> u64 {
                     // is this supported brick only supported by 1 brick (ie this brick)
                     (bricks.iter().filter(|b| b.supports(supported)).count() == 1) as usize
                 })
-                .sum::<usize>(); // return how many brick are uniquely supported by this brick
-                                 // dbg!(count)
-            count
+                .sum::<usize>() // return how many brick are uniquely supported by this brick
         })
         .filter(|&x| x == 0) // how many brick are not uniquely supporting a brick?
         .count() as u64
@@ -149,7 +145,36 @@ fn day22_p1(data: &str) -> u64 {
 fn day22_p2(data: &str) -> u64 {
     let mut bricks: Vec<Brick> = data.lines().map(Brick::from).collect();
     settle_bricks(&mut bricks);
-    0
+
+    let supported_by: Vec<Vec<usize>> = bricks
+        .iter()
+        .enumerate()
+        .map(|(ii, brick)| {
+            bricks
+                .iter()
+                .enumerate()
+                .take(ii)
+                .filter(|(_, b)| b.supports(brick))
+                .map(|(jj, _)| jj)
+                .collect()
+        })
+        .collect();
+
+    (0..bricks.len())
+        .map(|ii| {
+            // if brick ii falls, what else falls
+            let mut fallen = vec![ii];
+            for (jj, supports) in supported_by.iter().enumerate().skip(ii + 1) {
+                // if all of the supports of this brick have fallen
+                if !supports.is_empty() && supports.iter().all(|support| fallen.contains(support)) {
+                    // then it has fallen too
+                    fallen.push(jj);
+                }
+            }
+            // the first brick doesn't count
+            fallen.len() - 1
+        })
+        .sum::<usize>() as u64
 }
 
 pub fn run_day22_p1() -> u64 {
@@ -212,8 +237,7 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn test_day22_p2() {
-        assert_eq!(run_day22_p2(), 0);
+        assert_eq!(run_day22_p2(), 74594);
     }
 }
