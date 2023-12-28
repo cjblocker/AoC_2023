@@ -12,17 +12,17 @@ struct Velocity;
 
 #[derive(Debug, Clone, Copy, Eq, Hash, PartialEq, PartialOrd, Ord)]
 struct Vector<Quantity> {
-    x: u64,
-    y: u64,
-    z: u64,
+    x: i128,
+    y: i128,
+    z: i128,
     quantity: PhantomData<Quantity>,
 }
 
 impl<Quantity> From<&str> for Vector<Quantity> {
     fn from(data: &str) -> Self {
-        let [x, y, z]: [u64; 3] = data
-            .split(' ')
-            .map(|t| t.parse::<u64>().unwrap())
+        let [x, y, z]: [i128; 3] = data
+            .split(',')
+            .map(|t| t.trim().parse::<i128>().unwrap())
             .collect::<Vec<_>>()
             .try_into()
             .unwrap();
@@ -52,12 +52,73 @@ impl From<&str> for Hailstone {
 }
 
 impl Hailstone {
-    fn intersection(&self, other: &Self) -> Option<[u64; 2]> {
-        unimplemented!();
+    fn intersection(&self, other: &Self) -> [Rational; 4] {
+        fn intersection_x(
+            px1: i128,
+            py1: i128,
+            px2: i128,
+            py2: i128,
+            vx1: i128,
+            vy1: i128,
+            vx2: i128,
+            vy2: i128,
+        ) -> Rational {
+            let denom = vx2 * vy1 - vx1 * vy2;
+            let numer = vx2 * vy1 * px1 - vx1 * vy2 * px2 + vx1 * vx2 * (py2 - py1);
+            Rational { numer, denom }
+        }
+        let xi = intersection_x(
+            self.pos.x,
+            self.pos.y,
+            other.pos.x,
+            other.pos.y,
+            self.vel.x,
+            self.vel.y,
+            other.vel.x,
+            other.vel.y,
+        );
+        let yi = intersection_x(
+            self.pos.y,
+            self.pos.x,
+            other.pos.y,
+            other.pos.x,
+            self.vel.y,
+            self.vel.x,
+            other.vel.y,
+            other.vel.x,
+        );
+        let t1 = Rational {
+            numer: xi.numer - xi.denom * self.pos.x,
+            denom: xi.denom * self.vel.x,
+        };
+        let t2 = Rational {
+            numer: xi.numer - xi.denom * other.pos.x,
+            denom: xi.denom * other.vel.x,
+        };
+        [xi, yi, t1, t2]
     }
 }
 
-fn day24_p1(data: &str, lower: u64, upper: u64) -> usize {
+#[derive(Debug)]
+struct Rational {
+    numer: i128,
+    denom: i128,
+}
+
+impl Rational {
+    fn in_bounds(&self, lower: i128, upper: i128) -> bool {
+        let Rational { numer, denom } = self;
+        let numer = numer * denom.signum();
+        let denom = denom * denom.signum();
+        (numer >= lower * denom) && (numer <= upper * denom)
+    }
+
+    fn signum(&self) -> i128 {
+        self.numer.signum() * self.denom.signum()
+    }
+}
+
+fn day24_p1(data: &str, lower: i128, upper: i128) -> usize {
     let hailstones: Vec<Hailstone> = data.lines().map(Hailstone::from).collect();
     hailstones
         .iter()
@@ -67,18 +128,27 @@ fn day24_p1(data: &str, lower: u64, upper: u64) -> usize {
                 .iter()
                 .skip(ii + 1)
                 .filter(|hailstone2| {
-                    hailstone1
-                        .intersection(hailstone2)
-                        .filter(|pos| pos.iter().all(|p| (p >= &lower) && (p <= &upper)))
-                        .is_some()
+                    let [ix, iy, t1, t2] = hailstone1.intersection(hailstone2);
+                    if ix.denom == 0 {
+                        if ix.numer == 0 {
+                            panic!("Handle this case");
+                        } else {
+                            false
+                        }
+                    } else {
+                        (t1.signum() > 0)
+                            && (t2.signum() > 0)
+                            && ix.in_bounds(lower, upper)
+                            && iy.in_bounds(lower, upper)
+                    }
                 })
                 .count()
         })
         .sum()
 }
 
-fn day24_p2(data: &str) -> u64 {
-    0
+fn day24_p2(data: &str) -> i128 {
+    let hailstones: Vec<Hailstone> = data.lines().map(Hailstone::from).collect();
 }
 
 pub fn run_day24_p1() -> usize {
@@ -87,7 +157,7 @@ pub fn run_day24_p1() -> usize {
     day24_p1(&data, 200000000000000, 400000000000000)
 }
 
-pub fn run_day24_p2() -> u64 {
+pub fn run_day24_p2() -> i128 {
     // super slow
     let filename = "data/day_24.txt";
     let data = read_to_string(filename).unwrap();
@@ -132,13 +202,12 @@ mod test {
     #[test]
     #[ignore]
     fn test_day24_p2_example() {
-        assert_eq!(day24_p2(EXAMPLE), 0);
+        assert_eq!(day24_p2(EXAMPLE), 47);
     }
 
     #[test]
-    #[ignore]
     fn test_day24_p1() {
-        assert_eq!(run_day24_p1(), 0);
+        assert_eq!(run_day24_p1(), 18098);
     }
 
     #[test]
