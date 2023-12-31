@@ -1,5 +1,8 @@
 //! Day 24: Never Tell Me The Odds
 // use rayon::prelude::*;
+use itertools::Itertools;
+use num::integer::lcm;
+use num::Integer;
 use std::env;
 use std::fs::read_to_string;
 use std::marker::PhantomData;
@@ -108,6 +111,7 @@ struct Rational {
 impl Rational {
     fn in_bounds(&self, lower: i128, upper: i128) -> bool {
         let Rational { numer, denom } = self;
+        // make sure the denominator is non-negative
         let numer = numer * denom.signum();
         let denom = denom * denom.signum();
         (numer >= lower * denom) && (numer <= upper * denom)
@@ -115,6 +119,19 @@ impl Rational {
 
     fn signum(&self) -> i128 {
         self.numer.signum() * self.denom.signum()
+    }
+}
+
+impl TryFrom<Rational> for i128 {
+    type Error = &'static str;
+
+    fn try_from(value: Rational) -> Result<Self, Self::Error> {
+        let (quotient, remainder) = (value.numer / value.denom, value.numer % value.denom);
+        if remainder != 0 {
+            Err("Rational is not an integer")
+        } else {
+            Ok(quotient)
+        }
     }
 }
 
@@ -147,8 +164,96 @@ fn day24_p1(data: &str, lower: i128, upper: i128) -> usize {
         .sum()
 }
 
-fn day24_p2(data: &str) -> i128 {
-    let hailstones: Vec<Hailstone> = data.lines().map(Hailstone::from).collect();
+fn chinese_remainder_theorem(values: &[(i128, i128)]) -> Option<(i128, i128)> {
+    match values.len() {
+        0 => panic!("values is empty"),
+        1 => Some((values[0].0 % values[0].1, values[0].1)),
+        2 => {
+            let [(a1, n1), (a2, n2)]: [(i128, i128); 2] = values.try_into().unwrap();
+            let egcd = n1.extended_gcd(&n2);
+            if (a1 - a2) % egcd.gcd != 0 {
+                return None;
+            }
+            let lambda = (a1 - a2) / egcd.gcd;
+            let m = lcm(n1, n2);
+            let mut x = (a1 - n1 * lambda * egcd.x) % m;
+            if x < 0 {
+                x += m;
+            }
+            Some((x, m))
+        }
+        n => {
+            let half = n / 2;
+            let a = chinese_remainder_theorem(&values[..half])?;
+            let b = chinese_remainder_theorem(&values[half..])?;
+            chinese_remainder_theorem(&[a, b])
+        }
+    }
+}
+
+fn day24_p2(data: &str, take: usize) -> i128 {
+    let hailstones: Vec<Hailstone> = data.lines().map(Hailstone::from).take(take).collect();
+    let ak: Vec<(i128, i128)> = hailstones
+        .iter()
+        .map(|hs| {
+            (
+                hs.pos.x + hs.pos.y + hs.pos.z,
+                hs.vel.x + hs.vel.y + hs.vel.z,
+            )
+        })
+        .collect();
+    'outer: for vel in (0..).interleave((1..).map(|x| -x)) {
+        let ak_nk: Vec<(i128, i128)> = ak.iter().map(|(ai, ni)| (*ai, *ni - vel)).collect();
+        // x0 = ak + nk*t
+        if ak_nk.iter().any(|(_, ni)| *ni == 0) {
+            // if the net velocity (nk) is ever zero, then our position (x0)
+            // must equal the hailstones initial position (ak).
+            // This doesn't happen in practices though.
+            continue;
+        }
+        let x0 = if zero_vel.is_empty() {
+            let Some((x0, m)) = chinese_remainder_theorem(&ak_nk) else {
+                continue 'outer;
+            };
+            // println!("{} mod {} @ {}", x0, m, vel);
+            let mut ts: Vec<i128> = ak_nk
+                .iter()
+                .filter(|(_, ni)| *ni != 0)
+                .map(|(ai, ni)| (x0 - ai) / ni)
+                .collect();
+            let mut cs = (1..1000).interleave((1..1000).map(|x| -x));
+            let mut c = 0;
+            while ts.iter().any(|&t| t <= 0) {
+                let Some(c) = cs.next() else {
+                    continue 'outer;
+                };
+                ts = ak_nk
+                    .iter()
+                    .filter(|(_, ni)| *ni != 0)
+                    .map(|(ai, ni)| (x0 + c * m - ai) / ni)
+                    .collect();
+            }
+            x0 + c * m
+        } else {
+            continue;
+            // if zero_vel.len() == 1 {
+            //     let x0 = zero_vel[0].0;
+            //     println!("{}", x0);
+            //     for (ai, ni) in ak_nk.into_iter().filter(|(_, ni)| *ni != 0) {
+            //         let t = (x0 - ai) / ni;
+            //         if t < 0 {
+            //             continue 'outer;
+            //         }
+            //     }
+            //     x0
+            // } else {
+            //     continue 'outer;
+            // }
+        };
+
+        return x0;
+    }
+    unreachable!();
 }
 
 pub fn run_day24_p1() -> usize {
@@ -158,10 +263,12 @@ pub fn run_day24_p1() -> usize {
 }
 
 pub fn run_day24_p2() -> i128 {
-    // super slow
     let filename = "data/day_24.txt";
     let data = read_to_string(filename).unwrap();
-    day24_p2(&data)
+    for ii in 1..301 {
+        println!("{:?}: {:?}", ii, day24_p2(&data, ii));
+    }
+    0
 }
 
 fn main() {
@@ -213,7 +320,53 @@ mod test {
     #[test]
     #[ignore]
     fn test_day24_p2() {
-        // takes almost 2 minutes
         assert_eq!(run_day24_p2(), 0);
+    }
+
+    #[test]
+    fn test_crt() {
+        let values = [(2, 3), (3, 5), (2, 7)];
+        let (x, m) = chinese_remainder_theorem(&values).unwrap();
+        assert_eq!(x, 23);
+        assert_eq!(m, 105);
+    }
+
+    #[test]
+    fn test_crt_non_coprime() {
+        let values = [(1, 2), (1, 3), (1, 4), (1, 5), (1, 6)];
+        let (x, m) = chinese_remainder_theorem(&values).unwrap();
+        assert_eq!(x, 1);
+        assert_eq!(m, 60);
+    }
+
+    #[test]
+    fn test_crt_p2() {
+        let values = [
+            (19, -2 + 3),
+            (18, -1 + 3),
+            (20, -2 + 3),
+            (12, -1 + 3),
+            (20, 1 + 3),
+        ];
+        let (x0, m) = chinese_remainder_theorem(&values).unwrap();
+        dbg!(x0, m);
+        let mut ts: Vec<i128> = values
+            .iter()
+            .filter(|(_, ni)| *ni != 0)
+            .map(|(ai, ni)| (x0 - ai) / ni)
+            .collect();
+        let mut cs = (1..).interleave((1..).map(|x| -x));
+        let mut c = 0;
+        while ts.iter().any(|&t| t <= 0) {
+            c = cs.next().unwrap();
+            ts = values
+                .iter()
+                .filter(|(_, ni)| *ni != 0)
+                .map(|(ai, ni)| (x0 + c * m - ai) / ni)
+                .collect();
+        }
+        dbg!(ts, c, m);
+        let x = x0 + c * m;
+        assert_eq!(x, 24);
     }
 }
