@@ -164,7 +164,12 @@ fn day24_p1(data: &str, lower: i128, upper: i128) -> usize {
         .sum()
 }
 
+/// Finds the solution to the Chinese Remainder Theorem (CRT) if it exists,
+/// otherwise return None. Mod values (ni) do not need to be coprime.
+/// Solves the system of equations: xi = ai mod ni for xi,ai,ni integers.
 fn chinese_remainder_theorem(values: &[(i128, i128)]) -> Option<(i128, i128)> {
+    // I think there is a bug in this implementation as it sometimes returns
+    // values too large or None when its not supposed too.
     match values.len() {
         0 => panic!("values is empty"),
         1 => Some((values[0].0 % values[0].1, values[0].1)),
@@ -192,7 +197,11 @@ fn chinese_remainder_theorem(values: &[(i128, i128)]) -> Option<(i128, i128)> {
 }
 
 fn day24_p2(data: &str, take: usize) -> i128 {
+    // due to a bug (I assume in the CRT implementation), some values of take here
+    // give wrong answers or never return. A take value of 45 works on the input.
     let hailstones: Vec<Hailstone> = data.lines().map(Hailstone::from).take(take).collect();
+    // we only need the sum of the rocks x,y,z so we can just do the same to the hailstones
+    // and then only have to compute once. Yay, linearity.
     let ak: Vec<(i128, i128)> = hailstones
         .iter()
         .map(|hs| {
@@ -202,55 +211,45 @@ fn day24_p2(data: &str, take: usize) -> i128 {
             )
         })
         .collect();
+    // The CRT doesn't give us a good way to handle estimating our vx+vy+vz, so we just
+    // brute force this one parameter.
     'outer: for vel in (0..).interleave((1..).map(|x| -x)) {
         let ak_nk: Vec<(i128, i128)> = ak.iter().map(|(ai, ni)| (*ai, *ni - vel)).collect();
         // x0 = ak + nk*t
         if ak_nk.iter().any(|(_, ni)| *ni == 0) {
             // if the net velocity (nk) is ever zero, then our position (x0)
             // must equal the hailstones initial position (ak).
-            // This doesn't happen in practices though.
+            // This doesn't happen in practices though, logic is in commit history.
             continue;
         }
-        let x0 = if zero_vel.is_empty() {
-            let Some((x0, m)) = chinese_remainder_theorem(&ak_nk) else {
+        let Some((x0, m)) = chinese_remainder_theorem(&ak_nk) else {
+            continue 'outer;
+        };
+        // println!("{} mod {} @ {}", x0, m, vel);
+
+        // we have found a solution that satisfies the CRT, but we need to verify
+        // that the time points are all positive (the hailstones future).
+        let mut ts: Vec<i128> = ak_nk
+            .iter()
+            .filter(|(_, ni)| *ni != 0)
+            .map(|(ai, ni)| (x0 - ai) / ni)
+            .collect();
+        // we limit our search to [-1000, 1000] to avoid getting stuck here forever
+        let mut cs = (1..1000).interleave((1..1000).map(|x| -x));
+        let mut c = 0;
+        while ts.iter().any(|&t| t <= 0) {
+            c = if let Some(c) = cs.next() {
+                c
+            } else {
                 continue 'outer;
             };
-            // println!("{} mod {} @ {}", x0, m, vel);
-            let mut ts: Vec<i128> = ak_nk
+            ts = ak_nk
                 .iter()
                 .filter(|(_, ni)| *ni != 0)
-                .map(|(ai, ni)| (x0 - ai) / ni)
+                .map(|(ai, ni)| (x0 + c * m - ai) / ni)
                 .collect();
-            let mut cs = (1..1000).interleave((1..1000).map(|x| -x));
-            let mut c = 0;
-            while ts.iter().any(|&t| t <= 0) {
-                let Some(c) = cs.next() else {
-                    continue 'outer;
-                };
-                ts = ak_nk
-                    .iter()
-                    .filter(|(_, ni)| *ni != 0)
-                    .map(|(ai, ni)| (x0 + c * m - ai) / ni)
-                    .collect();
-            }
-            x0 + c * m
-        } else {
-            continue;
-            // if zero_vel.len() == 1 {
-            //     let x0 = zero_vel[0].0;
-            //     println!("{}", x0);
-            //     for (ai, ni) in ak_nk.into_iter().filter(|(_, ni)| *ni != 0) {
-            //         let t = (x0 - ai) / ni;
-            //         if t < 0 {
-            //             continue 'outer;
-            //         }
-            //     }
-            //     x0
-            // } else {
-            //     continue 'outer;
-            // }
-        };
-
+        }
+        let x0 = x0 + c * m;
         return x0;
     }
     unreachable!();
@@ -265,10 +264,10 @@ pub fn run_day24_p1() -> usize {
 pub fn run_day24_p2() -> i128 {
     let filename = "data/day_24.txt";
     let data = read_to_string(filename).unwrap();
-    for ii in 1..301 {
-        println!("{:?}: {:?}", ii, day24_p2(&data, ii));
-    }
-    0
+    // for ii in 1..301 {
+    //     println!("{:?}: {:?}", ii, day24_p2(&data, ii));
+    // }
+    day24_p2(&data, 45)
 }
 
 fn main() {
@@ -307,9 +306,8 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn test_day24_p2_example() {
-        assert_eq!(day24_p2(EXAMPLE), 47);
+        assert_eq!(day24_p2(EXAMPLE, 100), 47);
     }
 
     #[test]
@@ -318,9 +316,8 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn test_day24_p2() {
-        assert_eq!(run_day24_p2(), 0);
+        assert_eq!(run_day24_p2(), 886858737029295);
     }
 
     #[test]
@@ -341,6 +338,7 @@ mod test {
 
     #[test]
     fn test_crt_p2() {
+        // vel = -3
         let values = [
             (19, -2 + 3),
             (18, -1 + 3),
@@ -349,7 +347,6 @@ mod test {
             (20, 1 + 3),
         ];
         let (x0, m) = chinese_remainder_theorem(&values).unwrap();
-        dbg!(x0, m);
         let mut ts: Vec<i128> = values
             .iter()
             .filter(|(_, ni)| *ni != 0)
@@ -365,7 +362,6 @@ mod test {
                 .map(|(ai, ni)| (x0 + c * m - ai) / ni)
                 .collect();
         }
-        dbg!(ts, c, m);
         let x = x0 + c * m;
         assert_eq!(x, 24);
     }
